@@ -54,7 +54,7 @@ Cada interacción con Claude sigue un patrón predecible con cinco fases:
 4. **Respuesta al servidor** — la API devuelve el resultado a tu backend.
 5. **Respuesta al cliente** — tu servidor envía la respuesta al usuario final.
 
-![alt text](image-8.png)
+![alt text](imagenes/image-8.png)
 
 ---
 
@@ -83,7 +83,7 @@ Campos esenciales de cada solicitud:
 | **Messages** | Lista con el texto introducido por el usuario |
 | **Max tokens** | Límite de tokens que Claude puede generar |
 
-![alt text](image-9.png)
+![alt text](imagenes/image-9.png)
 
 ---
 
@@ -108,8 +108,8 @@ Claude refina cada vector basándose en las palabras circundantes para determina
 #### Generación
 Los embeddings contextualizados pasan por una capa de salida que calcula probabilidades para cada posible palabra siguiente. Claude combina probabilidad con aleatoriedad controlada para generar respuestas naturales y variadas. Tras seleccionar cada token, lo añade a la secuencia y repite el proceso.
 
-![alt text](image-10.png)
-![alt text](image-12.png)
+![alt text](imagenes/image-10.png)
+![alt text](imagenes/image-12.png)
 
 ---
 
@@ -132,8 +132,8 @@ Cuando termina la generación, la API devuelve una respuesta estructurada con:
 - **Stop reason** — motivo por el que terminó la generación.
 
 El servidor reenvía el texto generado a la aplicación cliente, donde aparece en la UI.
-![alt text](image-11.png)
-![alt text](image.png)
+![alt text](imagenes/image-11.png)
+![alt text](imagenes/image.png)
 
 ---
 
@@ -271,7 +271,7 @@ Para que Claude "recuerde" la conversación, tú debes gestionar el estado manua
 3. Añadir la siguiente pregunta como mensaje `user`.
 4. Enviar **todo el historial** en la próxima solicitud.
 
-![alt text](image-1.png)
+![alt text](imagenes/image-1.png)
 
 ---
 
@@ -393,8 +393,8 @@ La **temperatura** es un parámetro decimal entre `0.0` y `1.0` que controla qu�
 
 ---
 
-![alt text](image-2.png)
-![alt text](image-3.png)
+![alt text](imagenes/image-2.png)
+![alt text](imagenes/image-3.png)
 
 #### 6.2 Cómo afecta la temperatura a las probabilidades
 
@@ -417,7 +417,7 @@ Ejemplo: para el token siguiente a "¿Qué opinas?", Claude puede asignar 30 % a
 
 ---
 
-![alt text](image-4.png)
+![alt text](imagenes/image-4.png)
 
 #### 6.4 Agregar temperatura a la función de chat
 
@@ -452,7 +452,7 @@ Los únicos cambios respecto a la versión anterior son añadir `temperature=1.0
 | Quiero lluvia de ideas creativa | Alta (0.8 – 1.0) |
 | Tarea general equilibrada | Media (0.4 – 0.7) |
 
-![alt text](image-5.png)
+![alt text](imagenes/image-5.png)
 
 ---
 
@@ -483,11 +483,11 @@ Todos estos fragmentos son parte de una única solicitud a la API.
 | **MessageDelta** | El mensaje actual está completo |
 | **MessageStop** | Fin de la información del mensaje |
 
-![alt text](image-7.png)
+![alt text](imagenes/image-7.png)
 
 Los eventos `ContentBlockDelta` contienen el texto que se muestra al usuario.
 
-![alt text](image-6.png)
+![alt text](imagenes/image-6.png)
 
 ---
 
@@ -636,7 +636,7 @@ Trabajar con Claude implica dos disciplinas distintas:
 
 La ingeniería te dice *cómo* escribir; la evaluación te dice *qué tan bien* funciona lo que escribiste.
 
-![alt text](image-13.png)
+![alt text](imagenes/image-13.png)
 
 ---
 
@@ -890,7 +890,8 @@ Un evaluador toma la salida del modelo y devuelve una señal objetiva de calidad
 | **Modelo** | Otro modelo de IA evalúa la salida | Calidad, utilidad, seguimiento de instrucciones |
 | **Humano** | Revisión manual | Calidad general, profundidad, relevancia |
 
-![alt text](image-14.png)
+![alt text](imagenes/image-14.png)
+
 ---
 
 #### Criterios de evaluación para generación de código AWS
@@ -1010,7 +1011,7 @@ def validate_regex(text):
         return 0                   # Regex inválida
 ```
 
-![alt text](image-15.png)
+![alt text](imagenes/image-15.png)
 
 ---
 
@@ -1068,7 +1069,7 @@ El peso de cada criterio se puede ajustar según el caso de uso. Por ejemplo, si
 
 La ingeniería de indicaciones consiste en tomar un prompt existente y mejorarlo sistemáticamente para obtener resultados más fiables y de mayor calidad.
 
-![alt text](image-16.png)
+![alt text](imagenes/image-16.png)
 
 ---
 
@@ -1085,7 +1086,7 @@ La ingeniería de indicaciones consiste en tomar un prompt existente y mejorarlo
 
 Cada iteración debería mostrar una mejora apreciable en el puntaje de evaluación.
 
-![alt text](image-17.png)
+![alt text](imagenes/image-17.png)
 
 ---
 
@@ -1116,7 +1117,7 @@ dataset = evaluator.generate_dataset(
 )
 ```
 
-![alt text](image-18.png)
+![alt text](imagenes/image-18.png)
 
 ---
 
@@ -1184,7 +1185,7 @@ La primera línea del prompt es la parte más importante: sienta las bases para 
 | **Claridad** | Lenguaje sencillo, sin ambigüedad, que exprese exactamente lo que se quiere |
 | **Concisión** | Instrucciones directas, sin rodeos ni contexto innecesario |
 
-![alt text](image-19.png)
+![alt text](imagenes/image-19.png)
 
 ---
 
@@ -1238,7 +1239,7 @@ Esta revisión le indica inmediatamente a Claude:
 
 Especificar claramente lo que se desea reduce la ambigüedad y guía a Claude hacia resultados más consistentes y de mayor calidad.
 
-![alt text](image-20.png)
+![alt text](imagenes/image-20.png)
 
 ---
 
@@ -1251,7 +1252,7 @@ Especificar claramente lo que se desea reduce la ambigüedad y guía a Claude ha
 
 Ambos tipos se usan frecuentemente en conjunto en prompts profesionales.
 
-![alt text](image-21.png)
+![alt text](imagenes/image-21.png)
 
 ---
 
@@ -1297,7 +1298,7 @@ Ejemplo para una historia:
 | Toma de decisiones o pensamiento crítico | Agregar pasos del proceso |
 | Tareas donde Claude debe considerar múltiples perspectivas | Agregar pasos del proceso |
 
-![alt text](image-22.png)
+![alt text](imagenes/image-22.png)
 
 > La especificidad no limita a Claude — le da un objetivo claro al que aspirar, lo que mejora tanto la coherencia como la calidad del resultado.
 
@@ -1307,7 +1308,7 @@ Ejemplo para una historia:
 
 Las etiquetas XML permiten agregar estructura y claridad a los prompts, especialmente cuando se interpolan grandes cantidades de datos o se mezclan diferentes tipos de contenido.
 
-![alt text](image-23.png)
+![alt text](imagenes/image-23.png)
 
 ---
 
@@ -1320,7 +1321,7 @@ Sin delimitadores claros, Claude puede tener dificultades para distinguir entre 
 | Instrucciones y datos mezclados | Cada sección claramente delimitada |
 | Claude puede malinterpretar el contexto | Claude entiende el propósito de cada bloque |
 
-![alt text](image-24.png)
+![alt text](imagenes/image-24.png)
 
 ---
 
@@ -1380,6 +1381,8 @@ En lugar de describir lo que se quiere con palabras, se **demuestra** directamen
 
 Sin ejemplos, Claude puede interpretar "¡Realmente necesitaba un retraso en el vuelo esta noche! ¡Excelente!" como positivo. Con ejemplos, aprende que el sarcasmo debe clasificarse como negativo.
 
+![alt text](imagenes/image-25.png)
+
 ---
 
 #### 14.2 Estructura con etiquetas XML
@@ -1411,6 +1414,8 @@ on food choices and quantities, and aligns with the athlete's
 goals and restrictions.
 ```
 
+![alt text](imagenes/image-26.png)
+
 ---
 
 #### 14.4 One-shot vs. few-shot
@@ -1437,3 +1442,1091 @@ Al correr evaluaciones, buscar los resultados con el puntaje más alto (idealmen
 - Usar ejemplos relevantes y específicos para la tarea
 
 > Los ejemplos muestran en lugar de describir. Esto hace los prompts mucho más fiables y ayuda a Claude a entender requisitos sutiles que serían difíciles de expresar solo con instrucciones.
+
+---
+
+## Unidad 5: Tools
+
+### Módulo 15: Introducción al uso de herramientas
+
+Las herramientas (tools) permiten a Claude acceder a información del mundo exterior, superando la limitación de solo conocer lo aprendido durante el entrenamiento.
+
+---
+
+#### 15.1 El problema sin herramientas
+
+Por defecto, Claude no puede acceder a eventos actuales, datos en tiempo real ni sistemas externos. Ante una pregunta como "¿Qué tiempo hace en San Francisco?", solo puede responder que no tiene acceso a esa información — una experiencia frustrante para el usuario.
+
+---
+
+#### 15.2 Cómo funciona el uso de herramientas
+
+El flujo es un ciclo de ida y vuelta entre la aplicación y Claude:
+
+| Paso | Quién actúa | Qué ocurre |
+| --- | --- | --- |
+| 1. Solicitud inicial | Aplicación → Claude | Se envía la pregunta del usuario junto con instrucciones de qué herramientas están disponibles |
+| 2. Solicitud de herramienta | Claude → Aplicación | Claude decide que necesita datos externos y solicita información específica |
+| 3. Recuperación de datos | Aplicación → API externa | El servidor ejecuta código para obtener los datos solicitados |
+| 4. Respuesta final | Aplicación → Claude → Usuario | Se envían los datos a Claude, quien genera la respuesta completa |
+
+
+![alt text](image.png)
+---
+
+#### 15.3 Ejemplo: consulta del clima
+
+1. El usuario pregunta por el clima actual
+2. Se incluyen en el mensaje instrucciones sobre cómo obtener datos meteorológicos
+3. Claude reconoce que necesita información actualizada y la solicita para la ubicación específica
+4. El servidor consulta una API meteorológica y devuelve los datos a Claude
+5. Claude combina los datos en tiempo real con la pregunta para dar una respuesta precisa
+
+---
+
+#### 15.4 Beneficios clave
+
+| Beneficio | Descripción |
+| --- | --- |
+| **Información en tiempo real** | Datos actuales no disponibles en el entrenamiento |
+| **Integración de sistemas externos** | Bases de datos, APIs y otros servicios |
+| **Respuestas dinámicas** | Basadas en la información más reciente disponible |
+| **Interacción estructurada** | Claude sabe exactamente qué información necesita y cómo pedirla |
+
+> Las herramientas transforman a Claude de una base de conocimientos estática en un asistente dinámico capaz de trabajar con datos en tiempo real: clima, cotizaciones bursátiles, consultas a bases de datos, y cualquier otra información que los usuarios necesiten al momento.
+
+---
+
+### Módulo 16: Proyecto práctico — sistema de recordatorios
+
+#### 16.1 Objetivo
+
+Permitir que Claude interprete solicitudes en lenguaje natural como:
+
+> "Pon un recordatorio para mi cita con el médico, es el jueves de la semana que viene"
+
+Y responda con: "De acuerdo, te lo recordaré", habiendo calculado y configurado el recordatorio correctamente.
+
+---
+
+#### 16.2 Por qué es un desafío
+
+Claude tiene tres limitaciones específicas para este caso de uso:
+
+| Limitación | Descripción |
+| --- | --- |
+| **Conciencia temporal limitada** | Puede conocer la fecha actual pero no la hora exacta |
+| **Cálculo de fechas impreciso** | No siempre maneja bien la suma de fechas con muchos días de anticipación |
+| **Sin mecanismo de recordatorio** | No tiene forma incorporada de configurar recordatorios |
+
+---
+
+#### 16.3 Las tres herramientas a construir
+
+Cada herramienta resuelve una limitación específica:
+
+| Herramienta | Problema que resuelve |
+| --- | --- |
+| `get_current_datetime` | Provee la fecha y hora exacta actual |
+| `add_duration_to_datetime` | Calcula fechas futuras de forma confiable |
+| `set_reminder` | Configura el recordatorio en el sistema |
+
+Se implementan una a una, de la más simple a la más compleja, para entender el mecanismo de llamada a herramientas progresivamente.
+
+![alt text](image-1.png)
+
+---
+
+#### 16.4 Principio clave
+
+> Cuando el modelo tiene limitaciones, se amplían sus capacidades mediante herramientas en lugar de intentar sortear esas limitaciones en el prompt.
+
+---
+
+### Módulo 17: Funciones de herramienta
+
+Una **función de herramienta** es una función Python normal que se ejecuta automáticamente cuando Claude necesita información adicional para responder al usuario.
+
+![alt text](image-2.png)
+---
+
+#### 17.1 Buenas prácticas al escribir funciones de herramienta
+
+| Práctica | Por qué importa |
+| --- | --- |
+| **Nombres descriptivos** | Tanto el nombre de la función como el de los parámetros deben indicar claramente su propósito |
+| **Validar entradas** | Verificar que los parámetros obligatorios no estén vacíos o sean inválidos |
+| **Mensajes de error claros** | Claude puede leer los errores y reintentar la llamada con parámetros corregidos |
+
+La validación es especialmente importante porque Claude aprende de los errores: un mensaje como `"La ubicación no puede estar vacía"` le permite corregir la llamada automáticamente.
+
+![alt text](image-3.png)
+---
+
+#### 17.2 Primera herramienta: obtener fecha y hora actual
+
+```python
+from datetime import datetime
+
+def get_current_datetime(date_format="%Y-%m-%d %H:%M:%S"):
+    if not date_format:
+        raise ValueError("date_format cannot be empty")   # Error claro que Claude puede interpretar
+    return datetime.now().strftime(date_format)   # Formatea la fecha/hora según el patrón recibido
+```
+
+El formato por defecto devuelve `"2024-01-15 14:30:25"` (año-mes-día hora:minuto:segundo).
+
+Ejemplos de uso:
+
+```python
+get_current_datetime()          # "2024-01-15 14:30:25"  — formato completo por defecto
+get_current_datetime("%H:%M")   # "14:30"                — solo hora y minuto
+```
+
+---
+
+#### 17.3 Próximos pasos
+
+Crear la función es solo el primer paso. Luego se necesita:
+
+1. Escribir un **esquema JSON** que describa la función a Claude
+2. **Integrarla** en el sistema de chat para que Claude pueda invocarla
+
+Este enfoque mantiene el código organizado y le da a Claude capacidades poderosas sin complejidad innecesaria.
+
+---
+
+### Módulo 18: Esquemas de herramientas
+
+Tras escribir la función, el siguiente paso es crear un **esquema JSON** que le indique a Claude qué argumentos espera la función y cómo usarla. Actúa como documentación que Claude consulta para saber cuándo y cómo llamar a cada herramienta.
+
+![alt text](imagenes/image-27.png)
+---
+
+#### 18.1 Las tres partes de una especificación de herramienta
+
+| Campo | Descripción |
+| --- | --- |
+| `name` | Nombre claro y descriptivo de la herramienta |
+| `description` | Qué hace, cuándo usarla y qué devuelve |
+| `input_schema` | Esquema JSON que describe los argumentos de la función |
+
+---
+
+#### 18.2 Cómo escribir descripciones efectivas
+
+La descripción es clave para que Claude sepa cuándo invocar la herramienta:
+
+- Explicar qué hace la herramienta en 3-4 frases
+- Indicar cuándo debería usarla Claude
+- Describir qué tipo de datos devuelve
+- Dar descripciones detalladas para cada argumento
+
+![alt text](imagenes/image-28.png)
+---
+
+#### 18.3 Generar el esquema con Claude
+
+En lugar de escribirlo desde cero, se puede pedirle a Claude que lo genere:
+
+1. Copiar el código de la función
+2. Pedirle a Claude: *"Write a valid JSON schema specification for tool calling for this function. Follow the best practices listed in the attached documentation."*
+3. Incluir la documentación de Anthropic sobre tool use como contexto
+4. Copiar el esquema generado al archivo de código
+
+![alt text](imagenes/image-29.png)
+---
+
+#### 18.4 Implementación del esquema
+
+Convención de nombres: usar `function_name` seguido de `function_name_schema` para mantener la relación clara entre función y esquema.
+
+```python
+def get_current_datetime(date_format="%Y-%m-%d %H:%M:%S"):
+    if not date_format:
+        raise ValueError("date_format cannot be empty")
+    return datetime.now().strftime(date_format)
+
+# El esquema describe la función para que Claude sepa cómo invocarla
+get_current_datetime_schema = {
+    "name": "get_current_datetime",
+    "description": "Returns the current date and time formatted according to the specified format",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "date_format": {
+                "type": "string",                              # Tipo del parámetro
+                "description": "A string specifying the format of the returned datetime. Uses Python's strftime format codes.",
+                "default": "%Y-%m-%d %H:%M:%S"               # Valor por defecto si no se especifica
+            }
+        },
+        "required": []   # Lista vacía: ningún parámetro es obligatorio (todos tienen valor por defecto)
+    }
+}
+```
+
+---
+
+#### 18.5 Agregar seguridad de tipos con `ToolParam`
+
+```python
+from anthropic.types import ToolParam   # Tipo de la librería de Anthropic
+
+get_current_datetime_schema = ToolParam({
+    "name": "get_current_datetime",
+    "description": "Returns the current date and time formatted according to the specified format",
+    # ... resto del esquema
+})
+# ToolParam no cambia el comportamiento, pero evita errores de tipo al pasar
+# el esquema a la API y hace el código más robusto
+```
+
+---
+
+### Módulo 19: Manejo de bloques de mensajes
+
+Cuando Claude usa herramientas, la estructura de respuesta cambia: en lugar de un bloque de texto simple, devuelve mensajes **multibloque** que contienen tanto texto como información de uso de herramientas.
+
+---
+
+#### 19.1 Llamada a la API con herramientas
+
+```python
+messages = []
+messages.append({
+    "role": "user",
+    "content": "What is the exact time, formatted as HH:MM:SS?"
+})
+
+response = client.messages.create(
+    model=model,
+    max_tokens=1000,
+    messages=messages,
+    tools=[get_current_datetime_schema],   # Lista de esquemas de herramientas disponibles para Claude
+)
+```
+
+---
+
+#### 19.2 Estructura de un mensaje multibloque
+
+Cuando Claude decide usar una herramienta, `response.content` contiene una lista con dos bloques:
+
+| Bloque | Tipo | Contenido |
+| --- | --- | --- |
+| **TextBlock** | `text` | Texto legible explicando lo que Claude está haciendo |
+| **ToolUseBlock** | `tool_use` | Instrucciones para el código: qué función llamar y con qué parámetros |
+
+El **ToolUseBlock** incluye:
+
+- Un `id` para rastrear la llamada a la herramienta
+- El `name` de la función a invocar (ej. `"get_current_datetime"`)
+- Los `input` formateados como diccionario con los parámetros
+
+![alt text](imagenes/image-30.png)
+---
+
+#### 19.3 Gestionar el historial con mensajes multibloque
+
+Al agregar la respuesta de Claude al historial, hay que conservar **toda** la estructura del contenido, no solo el texto:
+
+```python
+messages.append({
+    "role": "assistant",
+    "content": response.content   # Preserva tanto el TextBlock como el ToolUseBlock
+})
+# Si se guardara solo response.content[0].text se perdería el ToolUseBlock
+# y Claude perdería el contexto de qué herramienta llamó
+```
+
+---
+
+#### 19.4 Flujo completo de uso de herramienta
+
+```text
+1. Enviar mensaje de usuario + esquemas de herramientas disponibles → Claude
+2. Claude responde con TextBlock + ToolUseBlock
+3. El código extrae la info del ToolUseBlock y ejecuta la función
+4. Se envía el resultado de la herramienta + historial completo → Claude
+5. Claude genera la respuesta final para el usuario
+```
+
+Cada paso requiere conservar la estructura completa del mensaje para que Claude mantenga el contexto necesario.
+
+![alt text](imagenes/image-31.png)
+---
+
+#### 19.5 Actualizar las funciones auxiliares
+
+Las funciones `add_user_message()` y `add_assistant_message()` originales solo soportan texto. Deben actualizarse para admitir contenido multibloque:
+
+```python
+def add_assistant_message(messages, content):
+    messages.append({
+        "role": "assistant",
+        "content": content   # Acepta tanto string (texto) como lista de bloques (multibloque)
+    })
+```
+
+---
+
+### Módulo 20: Enviando resultados de la herramienta
+
+Después de que Claude solicita una llamada a herramienta, el código debe ejecutar la función y devolver el resultado para completar el flujo.
+
+---
+
+#### 20.1 Ejecutar la función de la herramienta
+
+```python
+# Acceder a los parámetros que Claude quiere pasar a la función
+response.content[1].input   # Devuelve un diccionario con los argumentos
+
+# ** desempaqueta el diccionario como argumentos nombrados de la función
+get_current_datetime(**response.content[1].input)
+```
+
+![alt text](imagenes/image-32.png)
+
+---
+
+#### 20.2 Estructura del bloque de resultado (`tool_result`)
+
+El bloque de resultado tiene tres propiedades clave:
+
+| Propiedad | Descripción |
+| --- | --- |
+| `tool_use_id` | Debe coincidir con el ID del ToolUseBlock al que corresponde este resultado |
+| `content` | Salida de la ejecución de la herramienta, serializada como string |
+| `is_error` | `True` si ocurrió un error durante la ejecución; `False` si fue exitosa |
+
+El resultado se envía dentro de un mensaje de usuario con este formato:
+
+```python
+messages.append({
+    "role": "user",
+    "content": [{
+        "type": "tool_result",
+        "tool_use_id": response.content[1].id,   # Debe coincidir con el ID del ToolUseBlock
+        "content": "15:04:22",                    # Resultado serializado como string
+        "is_error": False                          # True si ocurrió un error durante la ejecución
+    }]
+})
+```
+![alt text](imagenes/image-33.png)
+---
+
+#### 20.3 Manejo de múltiples llamadas a herramientas
+
+Claude puede solicitar varias herramientas en una sola respuesta (ej. dos sumas independientes). Cada llamada tiene un `id` único — los resultados deben enviarse con el `tool_use_id` correcto para que Claude sepa qué resultado corresponde a cada solicitud, incluso si llegan en distinto orden.
+
+![alt text](imagenes/image-34.png)
+
+![alt text](imagenes/image-35.png)
+
+---
+
+#### 20.4 El historial completo en la solicitud de seguimiento
+
+En el momento de enviar el resultado, el historial contiene:
+
+```text
+1. Mensaje original del usuario
+2. Mensaje del asistente (TextBlock + ToolUseBlock)
+3. Mensaje del usuario con el bloque tool_result
+```
+
+---
+
+#### 20.5 Solicitud final a Claude
+
+Al enviar la solicitud de seguimiento hay que incluir el esquema de la herramienta aunque no se espere otra llamada — Claude lo necesita para entender las referencias a herramientas en el historial:
+
+```python
+final_response = client.messages.create(
+    model=model,
+    max_tokens=1000,
+    messages=messages,              # Historial completo con el tool_result incluido
+    tools=[get_current_datetime_schema]   # Siempre incluir el esquema en solicitudes de seguimiento
+)
+```
+![alt text](imagenes/image-36.png)
+
+Claude responde con un mensaje final en lenguaje natural que incorpora el resultado de la herramienta.
+
+---
+
+### Módulo 21: Conversaciones de varios turnos con herramientas
+
+Cuando una pregunta requiere múltiples herramientas en secuencia (ej. "¿Qué día será dentro de 103 días?"), Claude primero obtiene la fecha actual y luego suma los días. La aplicación debe gestionar este patrón automáticamente.
+
+![alt text](imagenes/image-37.png)
+---
+
+#### 21.1 Patrón de múltiples turnos
+
+```text
+1. Usuario pregunta: "¿Qué día será dentro de 103 días?"
+2. Claude solicita → get_current_datetime
+3. Servidor ejecuta la función y devuelve el resultado
+4. Claude solicita → add_duration_to_datetime
+5. Servidor ejecuta la función y devuelve el resultado
+6. Claude tiene suficiente información → genera respuesta final
+```
+![alt text](imagenes/image-38.png)
+---
+
+#### 21.2 Bucle de conversación
+
+```python
+def run_conversation(messages):
+    while True:
+        response = chat(messages)              # Llama a Claude con el historial actual
+
+        add_assistant_message(messages, response)   # Agrega la respuesta al historial
+
+        if response isn't asking for a tool:   # Si Claude no pide más herramientas, terminar
+            break
+
+        tool_result_blocks = run_tools(response)         # Ejecuta las herramientas solicitadas
+        add_user_message(messages, tool_result_blocks)   # Agrega los resultados al historial
+
+    return messages   # Devuelve el historial completo con toda la conversación
+```
+
+El bucle continúa hasta que `stop_reason` sea `"end_turn"` en lugar de `"tool_use"`.
+
+![alt text](imagenes/image-39.png)
+---
+
+#### 21.3 Actualizar `add_user_message` para contenido flexible
+
+```python
+from anthropic.types import Message
+
+def add_user_message(messages, message):
+    user_message = {
+        "role": "user",
+        # Si se recibe un objeto Message completo, extrae su contenido; si no, usa el valor tal cual
+        "content": message.content if isinstance(message, Message) else message
+    }
+    messages.append(user_message)
+```
+
+| Tipo de entrada | Resultado |
+| --- | --- |
+| `str` | Se usa directamente como contenido |
+| `list` de bloques | Se usa directamente como contenido |
+| Objeto `Message` | Se extrae `message.content` |
+
+---
+
+#### 21.4 Actualizar `chat` para soportar herramientas
+
+```python
+def chat(messages, system=None, temperature=1.0, stop_sequences=[], tools=None):
+    params = {
+        "model": model,
+        "max_tokens": 1000,
+        "messages": messages,
+        "temperature": temperature,
+        "stop_sequences": stop_sequences,
+    }
+
+    if tools:
+        params["tools"] = tools       # Solo se agrega si se proporcionaron herramientas
+
+    if system:
+        params["system"] = system
+
+    message = client.messages.create(**params)
+    return message   # Devuelve el objeto Message completo, no solo el texto
+```
+
+> Cambio clave respecto a versiones anteriores: ahora `chat` devuelve el objeto `Message` completo en lugar de solo `message.content[0].text`, para preservar todos los bloques (TextBlock + ToolUseBlock).
+
+---
+
+#### 21.5 Función auxiliar para extraer texto
+
+```python
+def text_from_message(message):
+    # Filtra solo los bloques de tipo "text" e ignora los ToolUseBlocks
+    return "\n".join(
+        [block.text for block in message.content if block.type == "text"]
+    )
+```
+
+| Propiedad del bloque | Descripción |
+| --- | --- |
+| `block.type` | Tipo del bloque: `"text"` o `"tool_use"` |
+| `block.text` | Texto legible (solo disponible en bloques de tipo `"text"`) |
+
+---
+
+#### 21.6 Mejoras clave de esta refactorización
+
+| Mejora | Descripción |
+| --- | --- |
+| **Gestión flexible de mensajes** | Las funciones auxiliares aceptan texto, listas de bloques u objetos `Message` |
+| **Soporte de herramientas en `chat`** | La función puede recibir y transmitir esquemas de herramientas a la API |
+| **Objeto `Message` completo devuelto** | Se preservan todos los bloques (TextBlock + ToolUseBlock), no solo el texto |
+| **Utilidad de extracción de texto** | `text_from_message()` permite obtener texto legible desde mensajes complejos |
+
+---
+
+### Módulo 22: Implementar múltiples giros
+
+Para crear un sistema de conversación con herramientas funcional, es necesario implementar un bucle que llame a Claude repetidamente hasta que deje de solicitar herramientas. El módulo cubre los componentes clave: detección de solicitudes, ejecución múltiple, manejo de errores y enrutamiento escalable.
+
+---
+
+#### 22.1 Detección de solicitudes de herramientas
+
+La clave para saber si Claude quiere usar una herramienta está en el campo `stop_reason` del mensaje de respuesta:
+
+| Valor de `stop_reason` | Significado |
+| --- | --- |
+| `"tool_use"` | Claude quiere llamar a una o más herramientas |
+| `"end_turn"` | Claude tiene una respuesta final, no necesita más herramientas |
+
+```python
+if response.stop_reason != "tool_use":
+    break   # Claude terminó, no hay más herramientas que ejecutar
+```
+
+---
+
+#### 22.2 El ciclo de conversación
+
+`run_conversation` encapsula el bucle completo: llama a Claude, procesa herramientas, repite hasta tener respuesta final:
+
+```python
+def run_conversation(messages):
+    while True:
+        # Llama a Claude con el historial actual y las herramientas disponibles
+        response = chat(messages, tools=[get_current_datetime_schema])
+        add_assistant_message(messages, response)   # Agrega la respuesta al historial
+
+        print(text_from_message(response))          # Muestra el texto legible de la respuesta
+
+        if response.stop_reason != "tool_use":      # Si Claude no pide más herramientas, salir del bucle
+            break
+
+        tool_results = run_tools(response)          # Ejecuta todas las herramientas solicitadas
+        add_user_message(messages, tool_results)    # Devuelve los resultados a Claude
+
+    return messages   # Historial completo con toda la conversación
+```
+
+---
+
+#### 22.3 La función `run_tools`
+
+![alt text](imagenes/image-40.png)
+
+Claude puede pedir varias herramientas en una sola respuesta. `run_tools` filtra todos los bloques de tipo `tool_use` y los procesa uno a uno:
+
+```python
+def run_tools(message):
+    # Filtra solo los bloques que son solicitudes de herramienta
+    tool_requests = [
+        block for block in message.content if block.type == "tool_use"
+    ]
+    tool_result_blocks = []
+
+    for tool_request in tool_requests:
+        # Procesa cada solicitud individualmente (ver sección 22.4 y 22.5)
+        ...
+
+    return tool_result_blocks   # Lista de bloques tool_result para enviar a Claude
+```
+
+---
+
+#### 22.4 Estructura del bloque de resultado (`tool_result`)
+
+Cada `ToolUseBlock` debe responderse con un bloque de resultado que tenga el mismo `id`. Así Claude sabe qué resultado corresponde a qué solicitud:
+
+![alt text](imagenes/image-41.png)
+
+```python
+tool_result_block = {
+    "type": "tool_result",
+    "tool_use_id": tool_request.id,          # Debe coincidir con el id del ToolUseBlock
+    "content": json.dumps(tool_output),       # Resultado serializado como string JSON
+    "is_error": False                          # False si la ejecución fue exitosa
+}
+```
+
+| Propiedad | Tipo | Descripción |
+| --- | --- | --- |
+| `type` | `str` | Siempre `"tool_result"` |
+| `tool_use_id` | `str` | ID del `ToolUseBlock` al que responde este resultado |
+| `content` | `str` | Resultado de la herramienta serializado como string |
+| `is_error` | `bool` | `True` si ocurrió un error; `False` si fue exitosa |
+
+---
+
+#### 22.5 Manejo de errores en la ejecución
+
+Cuando una herramienta falla, igualmente hay que enviar un bloque de resultado a Claude (con `is_error: True`) para que pueda decidir cómo continuar:
+
+```python
+try:
+    tool_output = run_tool(tool_request.name, tool_request.input)
+    tool_result_block = {
+        "type": "tool_result",
+        "tool_use_id": tool_request.id,
+        "content": json.dumps(tool_output),   # Resultado exitoso serializado
+        "is_error": False
+    }
+except Exception as e:
+    tool_result_block = {
+        "type": "tool_result",
+        "tool_use_id": tool_request.id,
+        "content": f"Error: {e}",   # Mensaje de error legible para que Claude lo interprete
+        "is_error": True            # Señal explícita de fallo
+    }
+```
+
+> Siempre hay que devolver un bloque de resultado aunque la herramienta falle — omitirlo rompe el flujo de conversación.
+
+---
+
+#### 22.6 Enrutamiento de herramientas escalable
+
+Para soportar varias herramientas, `run_tool` mapea nombres a implementaciones. Agregar una nueva herramienta solo requiere un `elif` adicional, sin tocar el resto de la lógica:
+
+```python
+def run_tool(tool_name, tool_input):
+    if tool_name == "get_current_datetime":
+        return get_current_datetime(**tool_input)    # ** desempaqueta el dict como argumentos
+    elif tool_name == "add_duration_to_datetime":
+        return add_duration_to_datetime(**tool_input)
+    elif tool_name == "another_tool":
+        return another_tool(**tool_input)
+    # Agregar más herramientas aquí sin cambiar run_conversation ni run_tools
+```
+
+---
+
+#### 22.7 Flujo de trabajo completo
+
+| Paso | Quién actúa | Qué ocurre |
+| --- | --- | --- |
+| 1 | Aplicación → Claude | Se envía el mensaje del usuario con la lista de herramientas disponibles |
+| 2 | Claude → Aplicación | Claude responde con texto y/o solicitudes de herramientas (`ToolUseBlock`) |
+| 3 | Aplicación | `run_tools` ejecuta cada herramienta y construye los bloques de resultado |
+| 4 | Aplicación → Claude | Se envían los resultados como mensaje de usuario |
+| 5 | — | Se repite desde el paso 1 hasta que `stop_reason != "tool_use"` |
+
+El historial completo se conserva en cada iteración, lo que permite a Claude basarse en los resultados de herramientas anteriores para dar respuestas exhaustivas a solicitudes complejas.
+
+---
+
+### Módulo 23: Utilizar múltiples herramientas
+
+Una vez que la infraestructura básica de manejo de herramientas está en su lugar, agregar herramientas adicionales es directo: se crea la función, se define su esquema, se registra en la lista y se agrega un caso al enrutador.
+
+---
+
+#### 23.1 Las herramientas que estamos añadiendo
+
+Para el sistema de recordatorios se necesitan tres herramientas complementarias:
+
+| Herramienta | Por qué es necesaria |
+| --- | --- |
+| `get_current_datetime` | Claude necesita conocer la fecha y hora actuales para calcular fechas futuras |
+| `add_duration_to_datetime` | Claude no es confiable para sumar fechas manualmente; la herramienta lo hace con precisión |
+| `set_reminder` | Mecanismo para configurar el recordatorio en el sistema |
+
+![alt text](imagenes/image-42.png)
+---
+
+#### 23.2 Añadiendo herramientas a la conversación
+
+En `run_conversation`, se pasan todos los esquemas en la lista `tools` para que Claude sepa cuáles tiene disponibles:
+
+```python
+response = chat(messages, tools=[
+    get_current_datetime_schema,       # Herramienta 1: fecha y hora actual
+    add_duration_to_datetime_schema,   # Herramienta 2: suma de duración a una fecha
+    set_reminder_schema                # Herramienta 3: configurar el recordatorio
+])
+```
+
+---
+
+#### 23.3 Actualización del enrutador de herramientas
+
+Se agregan casos `elif` en `run_tool` por cada nueva herramienta. La función actúa como un despachador: recibe el nombre, llama a la función correcta con los argumentos de Claude y devuelve el resultado:
+
+```python
+def run_tool(tool_name, tool_input):
+    if tool_name == "get_current_datetime":
+        return get_current_datetime(**tool_input)        # Desempaqueta los argumentos del dict
+
+    elif tool_name == "add_duration_to_datetime":
+        return add_duration_to_datetime(**tool_input)    # Claude pasa fecha base + duración
+
+    elif tool_name == "set_reminder":
+        return set_reminder(**tool_input)                # Claude pasa fecha/hora y texto del recordatorio
+```
+
+---
+
+#### 23.4 Pruebas de uso de múltiples herramientas
+
+Para verificar que el flujo funciona, se puede usar una solicitud que obligue a Claude a encadenar herramientas:
+
+> *"Configurar un recordatorio para mi cita con el médico. Faltan 177 días para el 1 de enero de 2050."*
+
+Claude resuelve esta solicitud en secuencia:
+
+| Paso | Herramienta usada | Qué hace |
+| --- | --- | --- |
+| 1 | `add_duration_to_datetime` | Calcula que 177 días antes del 1/1/2050 es el 27/6/2050 |
+| 2 | `set_reminder` | Configura el recordatorio para esa fecha calculada |
+
+![alt text](imagenes/image-43.png)
+
+---
+
+#### 23.5 Comprender el flujo de mensajes
+
+Al revisar el historial completo de la conversación se puede ver la estructura de mensajes encadenados:
+
+| Turno | Rol | Contenido |
+| --- | --- | --- |
+| 1 | `user` | Solicitud original del usuario |
+| 2 | `assistant` | TextBlock explicativo + uno o más ToolUseBlocks |
+| 3 | `user` | Bloques `tool_result` con los resultados de las herramientas |
+| 4 | `assistant` | Mensaje de seguimiento (puede pedir más herramientas o dar respuesta final) |
+
+> Un solo mensaje del asistente puede contener varios bloques simultáneamente: texto explicativo y múltiples solicitudes de herramientas combinadas.
+
+---
+
+#### 23.6 El patrón simple para agregar herramientas
+
+Cada nueva herramienta sigue exactamente el mismo proceso de cuatro pasos:
+
+| Paso | Acción |
+| --- | --- |
+| 1 | Crear la implementación de la función Python |
+| 2 | Definir el esquema JSON de la herramienta |
+| 3 | Agregar el esquema a la lista `tools` en `run_conversation` |
+| 4 | Agregar un caso `elif` en `run_tool` |
+
+Este enfoque modular permite ampliar las capacidades del asistente sin reestructurar el código existente. Cada herramienta nueva se integra al flujo de conversación y a la lógica de gestión sin modificar lo ya construido.
+
+![alt text](imagenes/image-44.png)
+
+---
+
+### Módulo 24: Llamada de herramienta de grano fino
+
+Al combinar herramientas con streaming, Claude devuelve actualizaciones en tiempo real a medida que genera los argumentos de cada herramienta. Comprender el mecanismo interno de validación es clave para elegir el comportamiento correcto.
+
+---
+
+#### 24.1 Transmisión de herramientas básicas
+
+Con streaming habilitado, además de los eventos `ContentBlockDelta` del texto normal, aparece un nuevo tipo de evento para herramientas: `InputJsonEvent`.
+
+| Propiedad | Descripción |
+| --- | --- |
+| `partial_json` | Fragmento de JSON que representa parte de los argumentos de la herramienta |
+| `snapshot` | JSON acumulativo construido a partir de todos los fragmentos recibidos hasta el momento |
+
+```python
+for chunk in stream:
+    if chunk.type == "input_json":
+        print(chunk.partial_json)      # Fragmento actual recibido
+        current_args = chunk.snapshot  # Argumentos completos acumulados hasta ahora
+```
+
+![alt text](imagenes/image-45.png)
+![alt text](imagenes/image-46.png)
+---
+
+#### 24.2 Cómo funciona la validación JSON
+
+La API no envía cada fragmento de inmediato. Almacena en búfer y valida antes de transmitir:
+
+| Paso | Qué hace la API |
+| --- | --- |
+| 1 | Espera a que se complete el valor de un par clave-valor de nivel superior |
+| 2 | Valida ese par contra el esquema de la herramienta |
+| 3 | Envía todos los fragmentos almacenados en búfer de ese par de una sola vez |
+| 4 | Repite el proceso para cada clave de nivel superior |
+
+```json
+{
+  "abstract": "This paper presents a novel...",
+  "meta": {
+    "word_count": 847,
+    "review": "This paper introduces QuanNet..."
+  }
+}
+```
+
+> Esto explica por qué con streaming se producen retrasos seguidos de ráfagas de texto: los fragmentos se retienen hasta que hay un par clave-valor completo y válido.
+
+---
+
+#### 24.3 Llamada de herramientas de grano fino
+
+La llamada de grano fino desactiva la validación JSON en la API, entregando cada fragmento tan pronto como Claude lo genera:
+
+| Comportamiento | Validación por defecto | Grano fino (`fine_grained=True`) |
+| --- | --- | --- |
+| Velocidad de entrega | Con retrasos de búfer | Inmediata, sin espera |
+| Validación JSON | Activa en la API | Desactivada — el código debe validar |
+| JSON parcial inválido | La API lo corrige o encapsula | Llega tal cual, puede ser inválido |
+
+```python
+run_conversation(
+    messages,
+    tools=[save_article_schema],
+    fine_grained=True   # Desactiva la validación en la API; los fragmentos llegan sin retraso
+)
+```
+
+![alt text](imagenes/image-47.png)
+
+---
+
+#### 24.4 Manejo de JSON no válido
+
+Con grano fino activo, Claude puede generar JSON inválido temporalmente (ej. `"word_count": undefined`). El código debe tolerarlo:
+
+```python
+try:
+    parsed_args = json.loads(chunk.snapshot)   # Intenta parsear el snapshot acumulado
+except json.JSONDecodeError:
+    # El snapshot aún no es JSON válido — es normal con grano fino
+    print("Received invalid JSON, continuing...")
+```
+
+> Sin grano fino, la API detecta este tipo de error y puede encapsular el valor en un string, lo que podría no coincidir con el esquema esperado.
+
+![alt text](imagenes/image-48.png) 
+
+![alt text](imagenes/image-49.png)
+---
+
+#### 24.5 Cuándo utilizar la llamada de grano fino
+
+| Usar grano fino cuando... | Mantener validación por defecto cuando... |
+| --- | --- |
+| Se necesita mostrar progreso en tiempo real al usuario | La experiencia de usuario no depende de velocidad de fragmentos |
+| Se quiere procesar resultados parciales lo antes posible | Se prefiere recibir JSON siempre válido sin lógica adicional |
+| Los retrasos de búfer afectan negativamente la UX | El manejo de errores JSON robusto no está implementado |
+
+Para la mayoría de las aplicaciones el comportamiento por defecto con validación es suficiente. La llamada de grano fino es una optimización para casos donde la capacidad de respuesta inmediata es crítica.
+
+![alt text](imagenes/image-50.png)
+
+---
+
+### Módulo 25: La herramienta de edición de texto
+
+Claude incluye una herramienta integrada que no necesita crearse desde cero: el editor de texto. Permite a Claude leer, modificar y crear archivos como lo haría un editor estándar, ampliando drásticamente sus capacidades hacia las de un ingeniero de software.
+
+---
+
+#### 25.1 Qué puede hacer la herramienta de edición de texto
+
+| Operación | Descripción |
+| --- | --- |
+| **Ver contenido** | Muestra el contenido de un archivo o directorio |
+| **Ver rango de líneas** | Visualiza un rango específico de líneas de un archivo |
+| **Reemplazar texto** | Sustituye texto en un archivo existente |
+| **Crear archivos** | Crea nuevos archivos con el contenido indicado |
+| **Insertar texto** | Inserta texto en una línea específica de un archivo |
+| **Deshacer ediciones** | Revierte las ediciones recientes en un archivo |
+
+---
+
+#### 25.2 Comprender los requisitos de implementación
+
+A diferencia de otras herramientas donde hay que escribir tanto el esquema como la implementación, con el editor de texto el esquema ya está integrado en Claude. Solo se debe implementar el código que ejecuta las operaciones:
+
+| Componente | Herramientas personalizadas | Editor de texto |
+| --- | --- | --- |
+| Esquema JSON | Lo escribe el desarrollador | Integrado en Claude |
+| Implementación de funciones | Lo escribe el desarrollador | Lo escribe el desarrollador |
+
+> Claude sabe cómo solicitar operaciones de archivo, pero el código que realmente las ejecuta (crear, leer, reemplazar, etc.) debe ser provisto por la aplicación.
+
+![alt text](imagenes/image-51.png)
+
+---
+
+#### 25.3 Versiones de esquema
+
+Aunque el esquema principal está integrado, hay que incluir un pequeño fragmento al realizar solicitudes. El esquema exacto depende del modelo utilizado:
+
+```python
+def get_text_edit_schema(model):
+    if model.startswith("claude-3-7-sonnet"):
+        return {
+            "type": "text_editor_20250124",   # Versión del esquema para Sonnet 3.7
+            "name": "str_replace_editor",
+        }
+    elif model.startswith("claude-3-5-sonnet"):
+        return {
+            "type": "text_editor_20241022",   # Versión del esquema para Sonnet 3.5
+            "name": "str_replace_editor",
+        }
+```
+
+| Campo | Descripción |
+| --- | --- |
+| `type` | Versión del esquema de la herramienta (varía según el modelo) |
+| `name` | Nombre fijo de la herramienta: siempre `"str_replace_editor"` |
+
+Claude recibe este pequeño fragmento y lo expande automáticamente en segundo plano a la especificación completa de la herramienta.
+
+---
+
+#### 25.4 Ejemplo práctico
+
+**Lectura y resumen de un archivo:**
+
+> *"Abre el archivo `./main.py` y resume su contenido."*
+
+Claude usará la herramienta para:
+
+1. Ver el archivo con la operación de lectura
+2. Leer el contenido completo
+3. Generar y devolver el resumen
+
+**Modificación y creación de archivos:**
+
+> *"Abre `./main.py` y escribe una función para calcular pi con 5 dígitos de precisión. Luego crea `./test.py` para probar la implementación."*
+
+Claude usará la herramienta para:
+
+1. Ver el archivo `main.py` existente
+2. Reemplazar su contenido con la nueva implementación
+3. Crear el archivo `test.py` con las pruebas unitarias correspondientes
+
+---
+
+#### 25.5 ¿Por qué utilizar la herramienta de edición de texto?
+
+| Caso de uso | Por qué la herramienta es valiosa |
+| --- | --- |
+| Aplicaciones que editan archivos por código | Integración directa sin depender de un editor externo |
+| Entornos sin IDE avanzado | Proporciona capacidades de edición donde no hay editor disponible |
+| Control preciso sobre el sistema de archivos | Define exactamente cómo Claude interactúa con los archivos de la app |
+
+La herramienta de edición de texto permite replicar gran parte de la funcionalidad de un editor de código con IA directamente dentro de aplicaciones propias, sin necesitar herramientas de terceros.
+
+---
+
+### Módulo 26: La herramienta de búsqueda web
+
+Claude incluye una herramienta de búsqueda web integrada que le permite consultar internet para obtener información actual o especializada. A diferencia de otras herramientas, Claude gestiona todo el proceso de búsqueda automáticamente — solo se necesita un esquema sencillo para activarla.
+
+> **Requisito previo:** la organización debe habilitar la herramienta de búsqueda web desde la consola de configuración de Anthropic antes de usarla.
+
+---
+
+#### 26.1 Configuración de la herramienta de búsqueda web
+
+El esquema tiene tres campos:
+
+```python
+web_search_schema = {
+    "type": "web_search_20250305",   # Versión de la herramienta integrada
+    "name": "web_search",            # Nombre con el que Claude identifica la herramienta
+    "max_uses": 5                    # Límite de búsquedas por conversación
+}
+```
+
+| Campo | Descripción |
+| --- | --- |
+| `type` | Versión de la herramienta de búsqueda web |
+| `name` | Nombre fijo: siempre `"web_search"` |
+| `max_uses` | Máximo de búsquedas que Claude puede realizar; evita exceso de llamadas a la API |
+
+> Una sola búsqueda puede devolver varios resultados, pero Claude puede considerar necesarias búsquedas adicionales. `max_uses` controla ese límite.
+
+---
+
+#### 26.2 Cómo funciona la respuesta
+
+Cuando Claude usa la herramienta, la respuesta contiene múltiples tipos de bloques:
+
+| Tipo de bloque | Contenido |
+| --- | --- |
+| **TextBlock** | Explicación de Claude sobre lo que está haciendo |
+| **ServerToolUseBlock** | Consulta de búsqueda exacta que usó Claude |
+| **WebSearchToolResultBlock** | Contenedor con todos los resultados de la búsqueda |
+| **WebSearchResultBlock** | Resultado individual con título y URL de la fuente |
+| **Bloque de citas** | Texto específico que Claude usó para respaldar sus afirmaciones, con URL de origen |
+
+Esta estructura permite ver exactamente qué buscó Claude, qué fuentes encontró y qué fragmentos específicos cita para sustentar cada afirmación.
+
+---
+
+#### 26.3 Restricción de dominios de búsqueda
+
+El campo `allowed_domains` limita las búsquedas a dominios de confianza específicos:
+
+```python
+web_search_schema = {
+    "type": "web_search_20250305",
+    "name": "web_search",
+    "max_uses": 5,
+    "allowed_domains": ["nih.gov"]   # Solo busca en dominios autorizados
+}
+```
+
+| Campo | Descripción |
+| --- | --- |
+| `allowed_domains` | Lista de dominios permitidos para la búsqueda (ej. `["nih.gov", "who.int"]`) |
+
+> Útil para garantizar que Claude obtenga información basada en evidencia (ej. PubMed) en lugar de contenido de blogs o fuentes no verificadas.
+
+---
+
+#### 26.4 Mostrando resultados de búsqueda
+
+Cada tipo de bloque está pensado para una representación específica en la UI:
+
+| Bloque | Cómo mostrarlo |
+| --- | --- |
+| **TextBlock** | Contenido de texto normal |
+| **WebSearchResultBlock** | Lista de fuentes en la parte superior de la respuesta |
+| **Bloque de citas** | En línea con el texto: dominio, título de página, URL y texto citado |
+
+Esta estructura da transparencia al usuario sobre qué información proviene de cada fuente, generando confianza en las respuestas de la IA.
+
+---
+
+#### 26.5 Uso práctico
+
+La herramienta se incluye en la lista `tools` de la llamada a la API. Claude decide automáticamente cuándo una búsqueda ayudaría a responder al usuario:
+
+```python
+response = client.messages.create(
+    model=model,
+    max_tokens=1000,
+    messages=messages,
+    tools=[web_search_schema]   # Claude usa la búsqueda cuando lo considera necesario
+)
+```
+
+Casos donde la herramienta aporta más valor:
+
+| Caso de uso | Por qué es útil |
+| --- | --- |
+| Eventos actuales y noticias recientes | No están en los datos de entrenamiento de Claude |
+| Información especializada o técnica | Fuentes actualizadas superan el conocimiento estático |
+| Verificación de datos | Contrasta información con fuentes autorizadas |
+| Investigación con datos actualizados | Garantiza información vigente, no desactualizada |
