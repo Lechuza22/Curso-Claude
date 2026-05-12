@@ -1059,3 +1059,381 @@ score = (model_score + syntax_score) / 2   # Promedio simple: ambos criterios ti
 El peso de cada criterio se puede ajustar según el caso de uso. Por ejemplo, si la sintaxis válida es crítica, podría dársele más peso que la calidad semántica.
 
 > La puntuación de referencia no es buena ni mala en sí misma — lo que importa es si mejora al iterar sobre el prompt. El evaluador por código convierte esa medición en algo objetivo y reproducible.
+
+---
+
+## Unidad 4: Ingeniería de indicaciones
+
+### Módulo 10: Ingeniería rápida — proceso iterativo
+
+La ingeniería de indicaciones consiste en tomar un prompt existente y mejorarlo sistemáticamente para obtener resultados más fiables y de mayor calidad.
+
+![alt text](image-16.png)
+
+---
+
+#### 10.1 El ciclo de mejora iterativa
+
+| Paso | Acción |
+| --- | --- |
+| 1 | Definir el objetivo |
+| 2 | Escribir una indicación inicial básica |
+| 3 | Evaluar con métricas objetivas |
+| 4 | Aplicar técnicas de ingeniería |
+| 5 | Reevaluar y comparar puntajes |
+| 6 | Repetir hasta alcanzar el rendimiento deseado |
+
+Cada iteración debería mostrar una mejora apreciable en el puntaje de evaluación.
+
+![alt text](image-17.png)
+
+---
+
+#### 10.2 Configurar el evaluador
+
+```python
+# PromptEvaluator gestiona la generación del dataset y la calificación
+evaluator = PromptEvaluator(max_concurrent_tasks=5)
+# max_concurrent_tasks controla cuántas tareas corren en paralelo
+# Empezar con 3 para evitar errores de límite de velocidad de la API
+```
+
+---
+
+#### 10.3 Generar el dataset de prueba automáticamente
+
+```python
+dataset = evaluator.generate_dataset(
+    task_description="Write a compact, concise 1 day meal plan for a single athlete",
+    prompt_inputs_spec={          # Define qué variables necesita el prompt
+        "height": "Athlete's height in cm",
+        "weight": "Athlete's weight in kg",
+        "goal": "Goal of the athlete",
+        "restrictions": "Dietary restrictions of the athlete"
+    },
+    output_file="dataset.json",   # Guarda el dataset en disco para reutilizarlo
+    num_cases=3                   # Mantener bajo (2-3) durante desarrollo para iterar rápido
+)
+```
+
+![alt text](image-18.png)
+
+---
+
+#### 10.4 Escribir la indicación inicial (versión naive)
+
+Empezar con algo deliberadamente básico para establecer una línea de base:
+
+```python
+def run_prompt(prompt_inputs):
+    prompt = f"""
+What should this person eat?
+
+- Height: {prompt_inputs["height"]}      # Inserta la estatura del atleta
+- Weight: {prompt_inputs["weight"]}      # Inserta el peso
+- Goal: {prompt_inputs["goal"]}          # Inserta el objetivo
+- Dietary restrictions: {prompt_inputs["restrictions"]}  # Inserta restricciones
+"""
+    messages = []
+    add_user_message(messages, prompt)
+    return chat(messages)   # Devuelve la respuesta de Claude sin procesamiento adicional
+```
+
+> Una puntuación inicial de ~2.3/10 es normal. El objetivo no es empezar bien, sino **medir la mejora** en cada iteración.
+
+---
+
+#### 10.5 Ejecutar la evaluación con criterios específicos
+
+```python
+results = evaluator.run_evaluation(
+    run_prompt_function=run_prompt,    # Función que genera la respuesta para cada caso
+    dataset_file="dataset.json",       # Dataset con los casos de prueba
+    extra_criteria="""
+The output should include:
+- Daily caloric total
+- Macronutrient breakdown
+- Meals with exact foods, portions, and timing
+"""
+    # extra_criteria guía al calificador sobre qué aspectos evaluar específicamente
+)
+```
+
+El resultado incluye un puntaje numérico y un informe HTML detallado con la justificación del calificador para cada caso de prueba.
+
+---
+
+#### 10.6 Principios clave
+
+- Hacer **un cambio a la vez** para aislar el impacto de cada técnica
+- Usar el informe detallado para entender exactamente **dónde falla** el prompt
+- La ingeniería de indicaciones es efectiva solo cuando se combina con evaluación objetiva — sin métricas, no se puede saber si un cambio es una mejora real
+
+---
+
+### Módulo 11: Ser claro y directo
+
+La primera línea del prompt es la parte más importante: sienta las bases para todo lo que sigue.
+
+---
+
+#### 11.1 Dos principios clave
+
+| Principio | Qué significa |
+| --- | --- |
+| **Claridad** | Lenguaje sencillo, sin ambigüedad, que exprese exactamente lo que se quiere |
+| **Concisión** | Instrucciones directas, sin rodeos ni contexto innecesario |
+
+![alt text](image-19.png)
+
+---
+
+#### 11.2 Claridad: decir exactamente lo que se quiere
+
+Empezar con una declaración directa de la tarea, sin ambigüedades.
+
+| En lugar de... | Usar... |
+| --- | --- |
+| "Necesito saber sobre esas cosas que ponen en los techos que usan el sol..." | "Escribe tres párrafos sobre cómo funcionan los paneles solares." |
+
+---
+
+#### 11.3 Directividad: instrucciones, no preguntas
+
+Comenzar con **verbos de acción** como *Escribir*, *Crear*, *Generar*, *Identificar*.
+
+| En lugar de... | Usar... |
+| --- | --- |
+| "He estado leyendo sobre energías renovables... ¿qué países usan geotérmica?" | "Identifica tres países que utilicen energía geotérmica. Incluye estadísticas de generación para cada uno." |
+
+---
+
+#### 11.4 Aplicado al ejemplo del plan de comidas
+
+**Versión naive (base):**
+
+```text
+What should this person eat?
+```
+
+**Versión mejorada:**
+
+```text
+Generate a one-day meal plan for an athlete that meets their dietary restrictions.
+```
+
+Esta revisión le indica inmediatamente a Claude:
+
+- **Qué acción** tomar → `Generate`
+- **Qué crear** → un plan de comidas de un día
+- **Para quién y con qué restricción** → un atleta, respetando su dieta
+
+**Resultado:** el puntaje de evaluación pasó de **2.32 → 3.92** con un solo cambio en la primera línea.
+
+> Claude responde mejor cuando se lo trata como un asistente competente que necesita instrucciones claras, no como alguien que tiene que adivinar lo que se quiere.
+
+---
+
+### Módulo 12: Ser específico
+
+Especificar claramente lo que se desea reduce la ambigüedad y guía a Claude hacia resultados más consistentes y de mayor calidad.
+
+![alt text](image-20.png)
+
+---
+
+#### 12.1 Dos tipos de directrices
+
+| Tipo | Para qué sirve |
+| --- | --- |
+| **Directrices de calidad de salida** | Controlar longitud, formato, atributos y tono del resultado |
+| **Pasos del proceso** | Guiar a Claude para que analice sistemáticamente antes de responder |
+
+Ambos tipos se usan frecuentemente en conjunto en prompts profesionales.
+
+![alt text](image-21.png)
+
+---
+
+#### 12.2 Directrices de calidad de salida
+
+Enumeran las cualidades que debe tener el resultado final. Ejemplos para un plan de comidas:
+
+```text
+Guidelines:
+1. Include accurate daily calorie amount
+2. Show protein, fat, and carb amounts
+3. Specify when to eat each meal
+4. Use only foods that fit restrictions
+5. List all portion sizes in grams
+6. Keep budget-friendly if mentioned
+```
+
+**Resultado en el ejemplo:** el puntaje de evaluación pasó de **3.92 → 7.86** — más del doble, solo por agregar directrices específicas.
+
+---
+
+#### 12.3 Pasos del proceso
+
+Instrucciones que Claude debe seguir antes de generar la respuesta final. Útiles cuando se quiere análisis sistemático o consideración de múltiples perspectivas.
+
+Ejemplo para una historia:
+
+```text
+1. Think of three talents that would create dramatic tension
+2. Choose the most interesting talent
+3. Describe a key scene that reveals the talent
+4. Think of supporting characters that could increase the impact
+```
+
+---
+
+#### 12.4 Cuándo usar cada tipo
+
+| Situación | Enfoque recomendado |
+| --- | --- |
+| Cualquier prompt | Siempre incluir directrices de calidad de salida |
+| Resolución de problemas complejos | Agregar pasos del proceso |
+| Toma de decisiones o pensamiento crítico | Agregar pasos del proceso |
+| Tareas donde Claude debe considerar múltiples perspectivas | Agregar pasos del proceso |
+
+![alt text](image-22.png)
+
+> La especificidad no limita a Claude — le da un objetivo claro al que aspirar, lo que mejora tanto la coherencia como la calidad del resultado.
+
+---
+
+### Módulo 13: Estructura con etiquetas XML
+
+Las etiquetas XML permiten agregar estructura y claridad a los prompts, especialmente cuando se interpolan grandes cantidades de datos o se mezclan diferentes tipos de contenido.
+
+![alt text](image-23.png)
+
+---
+
+#### 13.1 Por qué la estructura importa
+
+Sin delimitadores claros, Claude puede tener dificultades para distinguir entre las instrucciones y los datos que debe analizar. Las etiquetas XML crean límites explícitos entre secciones.
+
+| Sin estructura | Con etiquetas XML |
+| --- | --- |
+| Instrucciones y datos mezclados | Cada sección claramente delimitada |
+| Claude puede malinterpretar el contexto | Claude entiende el propósito de cada bloque |
+
+![alt text](image-24.png)
+
+---
+
+#### 13.2 Nombres de etiquetas personalizados
+
+No se necesitan etiquetas XML oficiales — se crean nombres descriptivos según el contenido:
+
+| Etiqueta genérica | Etiqueta descriptiva (preferida) |
+| --- | --- |
+| `<data>` | `<sales_records>` |
+| `<info>` | `<athlete_information>` |
+| `<text>` | `<docs>` |
+
+Cuanto más descriptivo el nombre, mejor entiende Claude el propósito de cada sección.
+
+---
+
+#### 13.3 Ejemplo aplicado al plan de comidas
+
+```xml
+<athlete_information>
+- Height: 6'2"
+- Weight: 180 lbs
+- Goal: Build muscle
+- Dietary restrictions: Vegetarian
+</athlete_information>
+
+Generate a meal plan based on the athlete information above.
+```
+
+Las etiquetas agrupan todos los datos del atleta como una unidad coherente, dejando en claro qué es contexto y qué es la instrucción.
+
+---
+
+#### 13.4 Cuándo usar etiquetas XML
+
+- Al incluir grandes cantidades de contexto o datos
+- Al mezclar diferentes tipos de contenido (código, documentación, datos)
+- Cuando los límites del contenido deben ser inequívocos
+- En prompts complejos que interpolan múltiples variables
+
+> Las etiquetas XML se vuelven cada vez más valiosas a medida que los prompts se vuelven más complejos. Con prompts simples el impacto es menor, pero en prompts avanzados pueden ser la diferencia entre una respuesta correcta y una confusa.
+
+---
+
+### Módulo 14: Proporcionar ejemplos (few-shot prompting)
+
+Proveer ejemplos de entrada/salida es una de las técnicas más efectivas de ingeniería de indicaciones. Se conoce como **one-shot** (un ejemplo) o **few-shot** (varios ejemplos).
+
+---
+
+#### 14.1 Cómo funcionan los ejemplos
+
+En lugar de describir lo que se quiere con palabras, se **demuestra** directamente con pares de entrada y salida ideal. Esto es especialmente útil para casos ambiguos o difíciles de describir verbalmente.
+
+**Ejemplo:** análisis de sentimiento con sarcasmo
+
+Sin ejemplos, Claude puede interpretar "¡Realmente necesitaba un retraso en el vuelo esta noche! ¡Excelente!" como positivo. Con ejemplos, aprende que el sarcasmo debe clasificarse como negativo.
+
+---
+
+#### 14.2 Estructura con etiquetas XML
+
+Los ejemplos deben envolverse en etiquetas XML para que Claude entienda claramente qué es entrada y qué es salida ideal:
+
+```xml
+<sample_input>
+Oh sure, I really needed a flight delay tonight! Just excellent!
+</sample_input>
+<ideal_output>
+Negative
+</ideal_output>
+```
+
+---
+
+#### 14.3 Agregar contexto al ejemplo
+
+No basta con dar el par entrada/salida — explicar **por qué** la salida es buena ayuda a Claude a entender el razonamiento, no solo el formato:
+
+```xml
+<ideal_output>
+[Tu ejemplo de salida aquí]
+</ideal_output>
+
+This example is well-structured, provides detailed information
+on food choices and quantities, and aligns with the athlete's
+goals and restrictions.
+```
+
+---
+
+#### 14.4 One-shot vs. few-shot
+
+| Tipo | Cuándo usarlo |
+| --- | --- |
+| **One-shot** (1 ejemplo) | Para establecer el patrón general |
+| **Few-shot** (varios ejemplos) | Para cubrir distintos casos borde o mostrar variedad de respuestas válidas |
+
+---
+
+#### 14.5 Cómo encontrar buenos ejemplos
+
+Al correr evaluaciones, buscar los resultados con el puntaje más alto (idealmente 10/10) y usar esos pares entrada/salida como ejemplos en el prompt. Así Claude aprende a partir de sus propias mejores respuestas.
+
+---
+
+#### 14.6 Buenas prácticas
+
+- Usar siempre etiquetas XML para estructurar los ejemplos
+- Ser explícito: "Aquí hay un ejemplo de entrada con una respuesta ideal"
+- Incluir ejemplos que cubran los casos de fallo más comunes
+- Explicar por qué cada ejemplo de salida es considerado ideal
+- Usar ejemplos relevantes y específicos para la tarea
+
+> Los ejemplos muestran en lugar de describir. Esto hace los prompts mucho más fiables y ayuda a Claude a entender requisitos sutiles que serían difíciles de expresar solo con instrucciones.
