@@ -1770,6 +1770,145 @@ def add_assistant_message(messages, content):
 
 ---
 
+#### 19.6 Apéndice: flujo completo con ejemplos
+
+##### El problema de fondo
+
+Claude es un modelo de lenguaje — no puede ejecutar código ni acceder al mundo real. Si le preguntás "¿qué hora es?", no lo sabe. Los tools son la solución: Claude puede *pedir* que alguien ejecute una función por él, y luego usar el resultado para responder.
+
+---
+
+##### Paso 1 — Definir la función y su schema
+
+Toda herramienta tiene dos partes: la función Python que hace el trabajo, y el schema JSON que le explica a Claude cómo y cuándo llamarla.
+
+```python
+from datetime import datetime
+
+def get_current_datetime():
+    return datetime.now().strftime("%H:%M:%S")
+
+get_current_datetime_schema = {
+    "name": "get_current_datetime",          # Nombre exacto de la función
+    "description": "Returns the current time in HH:MM:SS format.",  # Claude decide si usarla basándose en esto
+    "input_schema": {
+        "type": "object",
+        "properties": {}                     # Vacío pero obligatorio — la función no necesita argumentos
+    }
+}
+```
+
+> Si `input_schema` se omite o está malformado, la API devuelve un `BadRequestError 400`. Siempre incluir `"type": "object"` y `"properties"`, aunque estén vacíos.
+
+---
+
+##### Paso 2 — Enviar la pregunta con el menú de tools
+
+Se manda el mensaje del usuario y se adjuntan los schemas. Claude los usa como un menú: decide si invocar alguno o responder directamente.
+
+```python
+messages = [{"role": "user", "content": "What is the exact time, formatted as HH:MM:SS?"}]
+
+response = client.messages.create(
+    model=model,
+    max_tokens=1000,
+    messages=messages,
+    tools=[get_current_datetime_schema],   # Claude sabe que tiene esta herramienta disponible
+)
+```
+
+---
+
+##### Paso 3 — Claude responde con dos bloques
+
+`response.content` no es texto simple — es una lista de bloques:
+
+| Bloque | Tipo | Contenido |
+| --- | --- | --- |
+| `response.content[0]` | `TextBlock` | `"I'll check the current time for you."` |
+| `response.content[1]` | `ToolUseBlock` | `{id: "toolu_01...", name: "get_current_datetime", input: {}}` |
+
+Claude se detiene aquí (`stop_reason == "tool_use"`). No puede continuar solo — necesita que el código ejecute la función.
+
+---
+
+##### Paso 4 — Ejecutar la función y construir el historial
+
+Este es el paso más crítico. Hay que:
+
+1. Agregar la respuesta del asistente **con ambos bloques** (no solo el texto)
+2. Ejecutar la función real
+3. Enviar el resultado como mensaje de usuario con tipo `tool_result`
+
+```python
+# 1. Guardar la respuesta completa del asistente — INCLUYE el ToolUseBlock con su id
+messages.append({
+    "role": "assistant",
+    "content": response.content        # ← Nunca usar solo response.content[0].text aquí
+})
+
+# 2. Ejecutar la función real
+tool_use = next(b for b in response.content if b.type == "tool_use")
+result = get_current_datetime()        # "14:32:07"
+
+# 3. Devolver el resultado — el tool_use_id conecta este resultado con la solicitud anterior
+messages.append({
+    "role": "user",
+    "content": [{
+        "type": "tool_result",
+        "tool_use_id": tool_use.id,    # ← Debe coincidir con el id del ToolUseBlock
+        "content": result              # "14:32:07"
+    }]
+})
+```
+
+> Si en el paso anterior se guardara solo el texto y se omitiera el `ToolUseBlock`, la API rechazaría la solicitud porque el `tool_result` hace referencia a un `id` que no existe en el historial.
+
+---
+
+##### Paso 5 — Claude genera la respuesta final
+
+Ahora Claude tiene todo el contexto: la pregunta original, su propio razonamiento previo, y el resultado de la función. Puede responder al usuario de forma natural.
+
+```python
+final = client.messages.create(
+    model=model,
+    max_tokens=1000,
+    messages=messages,
+    tools=[get_current_datetime_schema],   # Siempre incluir los schemas en llamadas de seguimiento
+)
+print(final.content[0].text)
+# → "The exact time is 14:32:07."
+```
+
+---
+
+##### Resumen visual del flujo
+
+```text
+Vos      →  Claude     Pregunta + schemas disponibles
+Claude   →  Vos        [TextBlock] + [ToolUseBlock: llamar a get_current_datetime]
+Vos ejecuta  →         "14:32:07"
+Vos      →  Claude     historial completo + tool_result: "14:32:07"
+Claude   →  Vos        "The exact time is 14:32:07."
+```
+
+---
+
+##### Por qué el historial completo es obligatorio
+
+Claude no tiene memoria entre llamadas. Cada `client.messages.create()` empieza desde cero. El historial que se envía en el paso 5 debe contener:
+
+| Posición | Rol | Contenido |
+| --- | --- | --- |
+| 1 | `user` | Pregunta original |
+| 2 | `assistant` | TextBlock + ToolUseBlock |
+| 3 | `user` | Bloque `tool_result` con el resultado |
+
+Sin cualquiera de esos tres elementos, Claude no tiene el contexto suficiente para generar la respuesta final.
+
+---
+
 ### Módulo 20: Enviando resultados de la herramienta
 
 Después de que Claude solicita una llamada a herramienta, el código debe ejecutar la función y devolver el resultado para completar el flujo.
@@ -2434,6 +2573,7 @@ Claude incluye una herramienta de búsqueda web integrada que le permite consult
 
 > **Requisito previo:** la organización debe habilitar la herramienta de búsqueda web desde la consola de configuración de Anthropic antes de usarla.
 
+![alt text](imagenes/image-52.png)
 ---
 
 #### 26.1 Configuración de la herramienta de búsqueda web
@@ -2472,6 +2612,7 @@ Cuando Claude usa la herramienta, la respuesta contiene múltiples tipos de bloq
 
 Esta estructura permite ver exactamente qué buscó Claude, qué fuentes encontró y qué fragmentos específicos cita para sustentar cada afirmación.
 
+![alt text](imagenes/image-53.png)
 ---
 
 #### 26.3 Restricción de dominios de búsqueda
