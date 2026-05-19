@@ -3481,6 +3481,8 @@ Con la consulta "What happened with INC-2023-Q4-011?", los resultados de BM25 pr
 
 Los módulos anteriores desarrollaron `VectorIndex` y `BM25Index` como sistemas separados. Este módulo los unifica en un único componente llamado `Retriever`. El desafío de combinarlos no es técnico — es matemático: cada sistema usa una métrica de puntuación diferente, así que no se pueden sumar o comparar directamente. La solución es **Reciprocal Rank Fusion (RRF)**: un algoritmo que normaliza los rankings de ambos sistemas usando solo la *posición* de cada resultado, ignorando la puntuación absoluta.
 
+![alt text](imagenes/image-77.png)
+
 ---
 
 #### 33.1 La arquitectura del Retriever
@@ -3527,7 +3529,11 @@ RRF resuelve esto ignorando los valores absolutos y usando solo la **posición**
 RRF_score(d) = Σ  1 / (k + rank_i(d))
 ```
 
+![alt text](imagenes/image-80.png)
+
 Donde `rank_i(d)` es la posición del fragmento `d` en la lista del índice `i` (empezando en 1), y `k` es una constante de suavizado.
+
+![alt text](imagenes/image-78.png)
 
 **Ejemplo concreto** con `k = 1` para ver el efecto claramente:
 
@@ -3537,11 +3543,15 @@ Donde `rank_i(d)` es la posición del fragmento `d` en la lista del índice `i` 
 | Sección 6 | 3° | 1° | 1/(1+3) + 1/(1+1) | **0.750** |
 | Sección 7 | 2° | 3° | 1/(1+2) + 1/(1+3) | **0.583** |
 
+![alt text](imagenes/image-81.png)
+
 Resultado final: Sección 2 > Sección 6 > Sección 7.
 
 La Sección 2 gana porque estuvo en el top de *ambos* sistemas — aunque no fue primera en ninguno. La Sección 6 quedó segunda porque fue primera en BM25 pero última en vectores. La intuición es correcta: **un fragmento que ambos sistemas consideran relevante merece más confianza que uno que solo destaca en un sistema**.
 
 > Con `k = 60` (valor estándar), las diferencias entre posiciones se suavizan más — un fragmento en posición 1 y otro en posición 5 quedan más cercanos en el score final. Con `k = 1`, la diferencia entre posiciones es más pronunciada.
+
+![alt text](imagenes/image-79.png)
 
 ---
 
@@ -3570,6 +3580,8 @@ Porque todos los índices implementan la misma interfaz `SearchIndex` (`add_docu
 | Índice de grafos *(futuro)* | Relaciones entre entidades | Consultas sobre conexiones entre personas/eventos |
 | Índice especializado *(futuro)* | Dominio específico | Búsqueda médica, legal, financiera con vocabulario propio |
 
+![alt text](imagenes/image-82.png)
+
 La clave del diseño modular es que cada implementación puede desarrollarse, probarse y optimizarse de forma independiente. El `Retriever` solo necesita que respeten la interfaz — el resto es transparente para él.
 
 ---
@@ -3589,3 +3601,1498 @@ Módulo 33  →  Retriever híbrido con Reciprocal Rank Fusion
 
 Sistema final = Segmentación + Embeddings + VectorIndex + BM25Index + RRF
 ```
+
+---
+
+## Unidad 7: Características de Claude
+
+---
+
+### Módulo 34: Pensamiento extendido
+
+El pensamiento extendido (*Extended Thinking*) es la función de razonamiento avanzado de Claude: le da al modelo tiempo para analizar un problema en profundidad antes de generar la respuesta final. La analogía más útil es pensarlo como el **borrador** de Claude — un espacio donde razona en voz alta antes de comprometerse con una respuesta. El resultado es mayor precisión en tareas complejas y, como beneficio adicional, transparencia total sobre el proceso de razonamiento.
+
+La contrapartida es real: más tokens consumidos, mayor latencia y código más complejo para manejar la respuesta. Por eso no es la primera herramienta a usar — es la que se agrega cuando las indicaciones optimizadas ya no alcanzan.
+
+> **Restricción importante:** Extended Thinking no es compatible con prefill de mensajes ni con temperatura personalizada. Verificar la lista completa de restricciones en la documentación oficial antes de implementar.
+![alt text](imagenes/image-83.png) 
+
+---
+
+#### 34.1 Cómo cambia la estructura de la respuesta
+
+Sin pensamiento extendido, `response.content` es una lista con un solo `TextBlock`. Con pensamiento habilitado, la lista tiene **dos bloques**:
+
+| Bloque | Tipo | Contenido |
+| --- | --- | --- |
+| `content[0]` | `ThinkingBlock` | El razonamiento interno de Claude — visible para el desarrollador |
+| `content[1]` | `TextBlock` | La respuesta final para el usuario |
+
+Esta es la misma distinción que con los `ToolUseBlock` en tools: la respuesta deja de ser texto simple y se convierte en una lista de bloques con tipos diferentes. El código que procesa la respuesta debe estar preparado para manejar ambos.
+
+---
+
+#### 34.2 El sistema de firma (seguridad)
+
+Cada `ThinkingBlock` viene acompañado de una **firma criptográfica** generada por Anthropic. Esta firma cumple un rol de seguridad específico: garantiza que el texto de razonamiento no fue modificado por el desarrollador antes de enviárselo de vuelta a Claude.
+
+¿Por qué importa esto? Si alguien pudiera alterar el bloque de pensamiento, podría dirigir a Claude hacia razonamientos manipulados — potencialmente llevándolo a producir respuestas inseguras o incorrectas. La firma hace que cualquier modificación sea detectable.
+
+| Campo del ThinkingBlock | Descripción |
+| --- | --- |
+| `type` | Siempre `"thinking"` |
+| `thinking` | El texto de razonamiento legible |
+| `signature` | Token criptográfico que autentica el bloque |
+
+---
+
+#### 34.3 Pensamiento censurado
+
+En ocasiones, en lugar del texto de razonamiento legible, se recibe un **bloque de pensamiento censurado** (`redacted_thinking`). Esto ocurre cuando los sistemas de seguridad internos de Claude detectan irregularidades en el proceso de razonamiento.
+
+![alt text](imagenes/image-84.png)
+
+El contenido censurado no es un error — es una respuesta válida que contiene el pensamiento real en forma cifrada. Su propósito es permitir que el bloque se incluya en el historial de conversaciones futuras sin perder el contexto, aunque el desarrollador no pueda leerlo.
+
+Para probar que el código maneja correctamente este caso, existe una cadena de activación especial que fuerza a Claude a devolver un bloque censurado — útil para asegurarse de que la aplicación no falla ante esta respuesta antes de llegar a producción.
+
+---
+
+#### 34.4 Implementación
+
+Se agregan dos parámetros a la función `chat`: `thinking` (booleano que activa la función) y `thinking_budget` (límite de tokens para el razonamiento):
+
+```python
+def chat(
+    messages,
+    system=None,
+    temperature=1.0,
+    stop_sequences=[],
+    tools=None,
+    thinking=False,          # False por defecto — no activa el pensamiento extendido
+    thinking_budget=1024     # Mínimo 1024 tokens; debe ser menor que max_tokens
+):
+    params = {
+        "model": model,
+        "max_tokens": 16000,     # Debe ser mayor que thinking_budget
+        "messages": messages,
+    }
+
+    if thinking:
+        # Solo se agrega el bloque de pensamiento si se habilitó explícitamente
+        params["thinking"] = {
+            "type": "enabled",
+            "budget_tokens": thinking_budget   # Cuántos tokens puede usar Claude para razonar
+        }
+        # Nota: al activar thinking, temperature debe ser 1.0 (valor por defecto)
+        # y no se puede usar prefill de mensajes de asistente
+
+    if system:
+        params["system"] = system
+
+    return client.messages.create(**params)
+```
+
+| Parámetro | Tipo | Descripción |
+| --- | --- | --- |
+| `thinking` | `bool` | Activa el pensamiento extendido. Por defecto `False` |
+| `thinking_budget` | `int` | Tokens máximos para razonar. Mínimo `1024`; debe ser menor que `max_tokens` |
+| `budget_tokens` | `int` | Campo interno del dict que recibe la API (distinto de `thinking_budget`) |
+
+Llamada con pensamiento habilitado:
+
+```python
+response = chat(messages, thinking=True, thinking_budget=5000)
+
+# Procesar los bloques de la respuesta
+for block in response.content:
+    if block.type == "thinking":
+        print("Razonamiento:", block.thinking)   # Texto de razonamiento interno
+    elif block.type == "text":
+        print("Respuesta:", block.text)          # Respuesta final para el usuario
+```
+
+---
+
+#### 34.5 Cuándo usar pensamiento extendido
+
+La decisión sigue un orden claro:
+
+| Paso | Acción |
+| --- | --- |
+| 1 | Escribir y optimizar el prompt sin pensamiento extendido |
+| 2 | Evaluar la precisión con el pipeline de evaluación |
+| 3 | Si la precisión no alcanza el umbral requerido, **entonces** habilitar pensamiento extendido |
+
+Habilitar pensamiento extendido desde el principio sin optimizar el prompt primero es un error de diseño: los costos se disparan y la mejora puede no ser necesaria. Es una herramienta de último recurso para problemas que genuinamente requieren razonamiento profundo — matemáticas complejas, lógica multi-paso, análisis de escenarios.
+
+| Usar pensamiento extendido cuando... | No usarlo cuando... |
+| --- | --- |
+| El prompt optimizado no alcanza la precisión requerida | La tarea es conversacional o de redacción |
+| La tarea requiere razonamiento multi-paso | La latencia es crítica para el usuario |
+| Se necesita transparencia en el proceso de decisión | El costo es una restricción importante |
+
+---
+
+### Módulo 35: Soporte de imágenes
+
+Claude es un modelo **multimodal**: puede recibir tanto texto como imágenes en el mismo mensaje. Esto abre una clase entera de aplicaciones que antes requerían modelos especializados de visión — análisis de documentos escaneados, inspección de fotografías, lectura de gráficos, evaluaciones visuales automatizadas. El principio de ingeniería de indicaciones aplica igual que con texto: prompts simples dan resultados mediocres, prompts estructurados dan resultados precisos.
+
+![alt text](imagenes/image-85.png)
+
+---
+
+#### 35.1 Limitaciones y costo de imágenes
+
+Antes de implementar, hay restricciones concretas a tener en cuenta:
+
+| Límite | Valor |
+| --- | --- |
+| Imágenes por solicitud | Máximo **100** en todos los mensajes |
+| Tamaño por imagen | Máximo **5 MB** |
+| Dimensiones (imagen única) | Máximo **8000 × 8000 px** |
+| Dimensiones (múltiples imágenes) | Máximo **2000 × 2000 px** |
+| Formatos aceptados | `image/png`, `image/jpeg`, `image/gif`, `image/webp` |
+
+Las imágenes **consumen tokens** proporcionales a sus dimensiones. La fórmula es:
+
+```text
+tokens = (ancho_px × alto_px) / 750
+```
+
+Una imagen de 1000 × 1000 px consume ~1333 tokens. Esto es importante para estimar costos antes de escalar: muchas imágenes grandes en un pipeline pueden volverse costosas rápidamente.
+
+Las imágenes se pueden enviar de dos formas:
+
+- **Base64**: se codifica el archivo en texto y se incluye directamente en el mensaje — funciona sin URLs públicas
+- **URL**: se pasa un link a la imagen — más simple, pero requiere que la imagen sea accesible desde internet
+
+---
+
+#### 35.2 Estructura del mensaje con imagen
+
+![alt text](imagenes/image-86.png)
+
+El mensaje de usuario deja de ser un string simple y se convierte en una **lista de bloques**, igual que con tool use. Cada bloque tiene un `type` que indica su naturaleza:
+
+```python
+import base64
+
+# Leer el archivo y codificarlo en base64
+with open("image.png", "rb") as f:
+    # "rb" abre en modo lectura binaria — necesario para archivos que no son texto
+    image_bytes = base64.standard_b64encode(f.read()).decode("utf-8")
+    # standard_b64encode convierte los bytes a base64
+    # .decode("utf-8") convierte los bytes de base64 a string
+
+add_user_message(messages, [
+    # Bloque de imagen — siempre antes del bloque de texto
+    {
+        "type": "image",
+        "source": {
+            "type": "base64",              # Indicamos que la imagen viene codificada en base64
+            "media_type": "image/png",     # Tipo MIME del archivo
+            "data": image_bytes,           # El string base64 generado arriba
+        }
+    },
+    # Bloque de texto con la instrucción o pregunta
+    {
+        "type": "text",
+        "text": "What do you see in this image?"
+    }
+])
+```
+
+| Campo del bloque de imagen | Descripción |
+| --- | --- |
+| `type` | Siempre `"image"` |
+| `source.type` | `"base64"` para archivo codificado; `"url"` para imagen en internet |
+| `source.media_type` | Tipo MIME: `"image/png"`, `"image/jpeg"`, `"image/gif"`, `"image/webp"` |
+| `source.data` | El contenido base64 (solo cuando `source.type == "base64"`) |
+| `source.url` | La URL de la imagen (solo cuando `source.type == "url"`) |
+
+El flujo de mensajes es idéntico al de conversaciones solo de texto: Claude recibe el mensaje con imagen y responde con un `TextBlock` con su análisis.
+
+---
+
+#### 35.3 Técnicas de inducción para imágenes
+
+![alt text](imagenes/image-87.png)
+
+Las mismas técnicas de ingeniería de indicaciones que funcionan con texto funcionan con imágenes. La diferencia es que Claude ahora tiene dos fuentes de información simultáneas — el texto del prompt y el contenido visual — y las instrucciones determinan cómo combinarlas.
+
+Un prompt simple como "¿Cuántas canicas hay?" tiende a dar resultados incorrectos porque Claude no tiene una metodología explícita para contar. Hay tres técnicas principales para mejorar la precisión:
+
+| Técnica | Qué hace | Cuándo usarla |
+| --- | --- | --- |
+| **Pasos de análisis explícitos** | Guía a Claude a través de un método paso a paso | Cuando la tarea requiere razonamiento sistemático |
+| **Few-shot con imagen de referencia** | Incluye una imagen con respuesta conocida como ejemplo | Cuando el formato de salida es específico o el estilo importa |
+| **Subtareas secuenciales** | Divide una tarea compleja en pasos más simples | Cuando la imagen tiene múltiples elementos a analizar |
+
+---
+
+#### 35.4 Análisis paso a paso
+
+En lugar de una pregunta directa, se le provee a Claude una metodología concreta:
+
+```text
+Analyze this image of marbles and determine the exact count using this methodology:
+
+1. Begin by identifying each unique marble one at a time.
+   Assign each a number as you identify it.
+2. Verify your result by counting with a different method.
+   Start from the bottom-left corner and work row by row, left to right.
+
+What is the exact, verified number of marbles?
+```
+
+El punto clave es el paso de **verificación**: pedirle a Claude que cuente dos veces con métodos distintos reduce errores porque obliga a que ambos resultados coincidan antes de dar la respuesta. Esta técnica aplica a cualquier tarea de conteo o detección visual.
+
+---
+
+#### 35.5 Ejemplo práctico — evaluación de riesgo de incendio
+
+Una aplicación concreta del análisis de imágenes es la automatización de evaluaciones de riesgo para seguros de hogar usando imágenes satelitales. En lugar de enviar inspectores físicos, el sistema analiza la vegetación alrededor de una propiedad y asigna una puntuación de riesgo.
+
+
+Lo que hace efectivo al prompt no es la pregunta — es la **metodología en 5 pasos** que estructura el análisis:
+
+```text
+Analyze the attached satellite image of a property with these specific steps:
+
+1. Residence identification: Locate the primary residence by looking for:
+   - The largest roofed structure
+   - Typical residential features (driveway, regular geometry)
+   - Distinction from other structures (garages, sheds, pools)
+
+2. Tree overhang analysis: Examine all trees near the residence:
+   - Identify trees whose canopy extends over the roof
+   - Estimate the percentage of roof covered (0-25%, 25-50%, 50-75%, 75%+)
+   - Note dense overhang areas
+
+3. Fire risk assessment: For overhanging trees, evaluate:
+   - Wildfire vulnerability (ember catch points, fuel paths to structure)
+   - Proximity to chimneys, vents, or roof openings
+   - Branches that "bridge" wildland vegetation to the structure
+
+4. Defensible space identification:
+   - Identify if trees form a continuous canopy over the home
+   - Note fuel ladders (vegetation that carries fire from ground to roof)
+
+5. Fire risk rating (1-4):
+   - Rating 1 (Low): No overhanging branches, good defensible space
+   - Rating 2 (Moderate): <25% roof overhang, some separation between canopies
+   - Rating 3 (High): 25-50% overhang, connected canopies, multiple vulnerability points
+   - Rating 4 (Severe): >50% overhang, dense vegetation against structure
+
+For each item (1-5), write one sentence summarizing your findings.
+Final response: the numerical rating.
+```
+
+| Elemento del prompt | Por qué mejora el resultado |
+| --- | --- |
+| **Criterios de identificación explícitos** | Claude sabe exactamente qué buscar, no hace suposiciones |
+| **Rangos porcentuales predefinidos** | Elimina ambigüedad — "significativo" es subjetivo, "25-50%" no lo es |
+| **Resumen de una oración por paso** | Fuerza a Claude a justificar cada parte del análisis antes de la calificación final |
+| **Escala de rating con descripción** | Claude asigna la puntuación correcta porque sabe exactamente qué diferencia un 2 de un 3 |
+
+> El principio central: las mismas técnicas de ingeniería de indicaciones que funcionan con texto funcionan con imágenes. El modelo combina lo que ve con las instrucciones que recibe — cuanto más precisas sean las instrucciones, más útil es el análisis visual.
+
+---
+
+### Módulo 36: Compatibilidad con PDF
+
+Los PDFs son un formato universal para documentos estructurados: informes, papers, contratos, manuales. Claude puede leer y analizar PDFs directamente, sin necesidad de convertirlos a texto primero. Esto significa que Claude tiene acceso al documento completo — texto, tablas, imágenes incrustadas y estructura de formato — tal como lo vería un humano que lo abre en un visor.
+
+El mecanismo es idéntico al de imágenes: el PDF se convierte a base64 y se incluye en el mensaje como un bloque de contenido. La única diferencia está en el `type` del bloque (`"document"` en lugar de `"image"`) y en el `media_type` (`"application/pdf"`).
+
+#### 36.1 Estructura del mensaje con PDF
+
+```python
+import base64
+
+# Leer el PDF y codificarlo en base64 (igual que con imágenes)
+with open("earth.pdf", "rb") as f:
+    file_bytes = base64.standard_b64encode(f.read()).decode("utf-8")
+
+messages = []
+
+add_user_message(
+    messages,
+    [
+        {
+            "type": "document",          # "document" en lugar de "image"
+            "source": {
+                "type": "base64",
+                "media_type": "application/pdf",  # MIME type del PDF
+                "data": file_bytes,               # contenido codificado en base64
+            },
+        },
+        {"type": "text", "text": "Summarize the document in one sentence"},
+    ],
+)
+
+chat(messages)
+```
+
+| Campo | Valor para PDF | Valor equivalente para imagen |
+| --- | --- | --- |
+| `type` (bloque) | `"document"` | `"image"` |
+| `source.type` | `"base64"` | `"base64"` |
+| `source.media_type` | `"application/pdf"` | `"image/png"` / `"image/jpeg"` |
+| `source.data` | PDF codificado en base64 | imagen codificada en base64 |
+
+
+![alt text](imagenes/image-88.png)
+
+> La estructura es casi idéntica a la de imágenes. Si ya tenés código de procesamiento de imágenes funcionando, adaptarlo a PDFs requiere cambiar solo dos campos: `type` y `media_type`.
+
+#### 36.2 Qué puede extraer Claude de un PDF
+
+A diferencia de un extractor de texto plano (que solo ve caracteres), Claude interpreta el documento como un todo:
+
+| Elemento del PDF | Qué puede hacer Claude |
+| --- | --- |
+| **Texto corrido** | Leer, resumir, citar, traducir |
+| **Tablas** | Entender relaciones entre filas y columnas, comparar datos |
+| **Imágenes y gráficos incrustados** | Describir, interpretar, extraer información visual |
+| **Estructura y formato** | Reconocer secciones, encabezados, jerarquía del documento |
+
+> Esta combinación hace que Claude sea útil para tareas como: resumir un paper científico, extraer cláusulas de un contrato, analizar un reporte financiero con gráficos, o comparar secciones de un manual técnico — todo sin preprocesamiento externo.
+
+---
+
+### Módulo 37: Citas
+
+Cuando Claude responde preguntas basadas en documentos que le proveemos, el usuario no puede saber si la información viene de los documentos proporcionados o del entrenamiento del modelo. Las **citas** resuelven este problema: le indican a Claude que marque cada afirmación con una referencia exacta al fragmento del documento del que proviene. El resultado es una respuesta estructurada donde cada dato tiene un origen verificable.
+
+Esto transforma a Claude de una "caja negra" que da respuestas en un **asistente de investigación transparente** — los usuarios pueden ver exactamente qué parte del documento original respalda cada afirmación.
+
+#### 37.1 Habilitar citas en un documento PDF
+
+Para activar las citas hay que agregar dos campos al bloque de documento: `title` (nombre legible) y `citations` (flag de activación):
+
+```python
+{
+    "type": "document",
+    "source": {
+        "type": "base64",
+        "media_type": "application/pdf",
+        "data": file_bytes,         # contenido del PDF en base64
+    },
+    "title": "earth.pdf",           # nombre del documento (aparece en la cita)
+    "citations": {"enabled": True}  # activa el sistema de citas
+}
+```
+
+| Campo | Tipo | Descripción |
+| --- | --- | --- |
+| `title` | `str` | Nombre legible del documento — aparece en la referencia de cada cita |
+| `citations.enabled` | `bool` | Si es `True`, Claude incluye referencias al documento en su respuesta |
+
+#### 37.2 Estructura de la respuesta con citas
+
+Cuando las citas están habilitadas, la respuesta deja de ser texto simple y pasa a ser **datos estructurados**: cada fragmento de la respuesta incluye metadatos que lo conectan con el documento fuente.
+![alt text](imagenes/image-89.png)
+Cada cita contiene:
+
+| Campo de la cita | Descripción |
+| --- | --- |
+| `cited_text` | El texto exacto del documento que respalda la afirmación |
+| `document_index` | Índice del documento referenciado (útil cuando hay múltiples documentos) |
+| `document_title` | El `title` asignado al documento |
+| `start_page_number` | Página donde comienza el texto citado |
+| `end_page_number` | Página donde termina el texto citado |
+
+> Los campos `start_page_number` y `end_page_number` son específicos de PDFs. Con texto plano se usan posiciones de caracteres en su lugar (ver §37.3).
+
+![alt text](imagenes/image-90.png)
+
+#### 37.3 Citas con texto plano
+
+Las citas no están limitadas a PDFs. Con texto plano la estructura del `source` cambia, pero `title` y `citations` se mantienen igual:
+
+```python
+{
+    "type": "document",
+    "source": {
+        "type": "text",             # "text" en lugar de "base64"
+        "media_type": "text/plain",
+        "data": article_text,       # string de texto directamente
+    },
+    "title": "earth_article",
+    "citations": {"enabled": True}
+}
+```
+
+| Tipo de fuente | `source.type` | `source.media_type` | Referencia de posición |
+| --- | --- | --- | --- |
+| PDF | `"base64"` | `"application/pdf"` | Números de página |
+| Texto plano | `"text"` | `"text/plain"` | Posiciones de caracteres |
+
+#### 37.4 Cuándo usar citas
+
+| Escenario | Por qué las citas ayudan |
+| --- | --- |
+| Usuarios que deben verificar información | Pueden ir directo al fragmento del documento original |
+| Documentos autoritativos (contratos, papers) | Cada afirmación queda anclada a una fuente específica |
+| Interfaces con múltiples documentos | `document_index` identifica cuál de los documentos es la fuente |
+| Aplicaciones donde la transparencia es crítica | Los usuarios ven el proceso, no solo el resultado |
+
+> El valor real de las citas no está solo en la respuesta — está en lo que hacés con los metadatos. Se pueden construir interfaces donde el usuario pase el cursor sobre una afirmación y vea el fragmento exacto del documento fuente, o donde se resalten automáticamente las secciones citadas en un visor de PDFs.
+
+---
+
+### Módulo 38: Almacenamiento en caché de mensajes (Prompt Caching)
+
+Cada vez que se envía un mensaje a Claude, el modelo hace una cantidad significativa de trabajo antes de generar cualquier token de respuesta: tokeniza la entrada, construye embeddings para cada token y analiza el contexto circundante. Por defecto, todo ese trabajo se descarta al finalizar la solicitud.
+
+El **prompt caching** cambia ese comportamiento: en lugar de descartar el resultado del preprocesamiento, Claude lo guarda en una caché. Cuando llega una solicitud posterior que contiene el mismo contenido, Claude reutiliza ese trabajo en lugar de repetirlo. El resultado es doble — **respuestas más rápidas** y **menor costo**, porque el trabajo ya está hecho.
+
+#### 38.1 Flujo sin caché vs. con caché
+
+**Sin caché (comportamiento por defecto):**
+
+```text
+Solicitud 1: [preprocesamiento completo → respuesta → descarte del trabajo]
+Solicitud 2: [preprocesamiento completo de nuevo → respuesta → descarte]
+Solicitud 3: [preprocesamiento completo de nuevo → ...]
+```
+
+![alt text](imagenes/image-91.png)
+![alt text](imagenes/image-92.png)
+![alt text](imagenes/image-93.png)
+
+**Con caché habilitada:**
+
+```text
+Solicitud 1: [preprocesamiento completo → respuesta → guarda en caché]
+Solicitud 2: [lee de la caché → respuesta]  ← más rápido y más barato
+Solicitud 3: [lee de la caché → respuesta]  ← idem
+```
+![alt text](imagenes/image-94.png)
+
+La primera solicitud siempre paga el costo completo (es quien escribe la caché). Las solicitudes siguientes que reutilicen el mismo contenido se benefician.
+
+#### 38.2 Características clave
+
+| Característica | Detalle |
+| --- | --- |
+| **Duración de la caché** | El contenido almacenado permanece activo por **1 hora** |
+| **Primera solicitud** | Escribe en la caché — paga costo completo |
+| **Solicitudes siguientes** | Leen de la caché — pagan costo reducido |
+| **Requisito** | El contenido reutilizado debe ser **idéntico** para que aplique la caché |
+| **Optimización** | Automática — no requiere lógica especial de comparación |
+
+#### 38.3 Cuándo usar prompt caching
+
+El caching es útil solo cuando el mismo bloque de contenido se repite frecuentemente en las solicitudes. No aporta nada si cada solicitud es completamente diferente.
+
+| Caso de uso | Por qué funciona bien |
+| --- | --- |
+| **Análisis de documentos extensos** | Se hacen múltiples preguntas sobre el mismo PDF o texto |
+| **Edición iterativa** | El documento base no cambia, solo el prompt varía |
+| **System prompts largos** | El mismo prompt de sistema aparece en cientos de solicitudes |
+| **Conversaciones con contexto fijo** | Un fragmento grande de contexto se mantiene entre turnos |
+
+![alt text](imagenes/image-95.png)
+
+> La regla práctica: si un bloque de texto aparece en más de una solicitud por hora, el caching probablemente conviene. Si cada solicitud lleva contenido distinto, no hay beneficio porque la caché nunca se reutiliza antes de expirar.
+
+---
+
+### Módulo 39: Reglas del almacenamiento en caché
+
+El caching no es automático ni global — hay que activarlo explícitamente en los bloques que queremos cachear, y hay reglas específicas que determinan si la caché se usa o se invalida. Entender estas reglas es la diferencia entre implementar caching efectivo e implementarlo sin que funcione.
+
+![alt text](imagenes/image-96.png)
+
+#### 39.1 Puntos de interrupción de caché (cache breakpoints)
+
+El mecanismo concreto para activar el caching es el **cache breakpoint**: un campo extra en el bloque de contenido que le dice a Claude "guardá en caché todo el trabajo computacional hasta este punto".
+
+Para agregarlo, hay que usar la forma expandida del bloque de texto (la forma abreviada — un string simple — no tiene campo para `cache_control`):
+
+```python
+# Forma ABREVIADA — no permite cache_control
+{"role": "user", "content": "Texto del mensaje"}
+
+# Forma EXPANDIDA — permite agregar cache_control
+{
+    "role": "user",
+    "content": [
+        {
+            "type": "text",
+            "text": "Texto del mensaje",
+            "cache_control": {"type": "ephemeral"}  # activa el breakpoint
+        }
+    ]
+}
+```
+
+![alt text](imagenes/image-98.png)
+
+| Campo | Valor | Efecto |
+| --- | --- | --- |
+| `cache_control.type` | `"ephemeral"` | Guarda en caché todo el contenido procesado hasta este bloque inclusive |
+
+![alt text](imagenes/image-97.png)
+
+> `"ephemeral"` significa que la caché dura hasta su expiración (1 hora). Es el único tipo de `cache_control` disponible actualmente.
+
+#### 39.2 Regla de invalidación — el contenido debe ser idéntico
+
+La caché solo se reutiliza si el contenido **hasta el breakpoint inclusive** es exactamente igual al de la solicitud que generó la caché. Cualquier cambio, por mínimo que sea, invalida la caché completa y obliga a reprocesar todo.
+
+![alt text](imagenes/image-99.png)
+
+```text
+Solicitud 1: "Analizá este documento extenso..."  → escribe caché ✓
+Solicitud 2: "Analizá este documento extenso..."  → lee caché ✓
+Solicitud 3: "Analizá este documento extenso. Por favor..." → CACHÉ INVALIDADA ✗
+```
+
+Esto tiene una implicación importante: el contenido variable (la pregunta del usuario, por ejemplo) debe ir **después** del breakpoint, no antes.
+
+#### 39.3 El breakpoint puede abarcar múltiples mensajes
+
+Si se coloca un breakpoint en un mensaje posterior de una conversación, Claude cachea todo el contexto anterior también — mensajes de usuario, respuestas del asistente, etc. — no solo el bloque donde está el campo `cache_control`.
+
+```text
+[Mensaje 1 — usuario]
+[Respuesta 1 — asistente]
+[Mensaje 2 — usuario con cache_control aquí]  ← cachea todo hasta acá
+[Mensaje 3 — usuario — procesado normalmente]
+```
+![alt text](imagenes/image-100.png)
+
+![alt text](imagenes/image-101.png)
+
+#### 39.4 Qué tipos de bloques admiten breakpoints
+
+Los breakpoints no son exclusivos de mensajes de texto — se pueden agregar a cualquiera de estos bloques:
+
+| Tipo de bloque | Por qué es buen candidato para caché |
+| --- | --- |
+| **System prompts** | Casi nunca cambian entre solicitudes |
+| **Definiciones de herramientas** | Se mantienen constantes durante toda la aplicación |
+| **Bloques de imagen** | Si la misma imagen se analiza repetidamente |
+| **Bloques de uso/resultado de herramienta** | En flujos multi-turn con contexto acumulado |
+
+> Las definiciones de herramientas y los system prompts son los mejores candidatos para caching porque rara vez cambian. Una aplicación con un system prompt de 2000 tokens que hace cientos de llamadas por hora ahorra costos significativos con un solo breakpoint.
+
+#### 39.5 Orden de procesamiento interno y límite de breakpoints
+
+Claude procesa los componentes de la solicitud en este orden:
+
+```text
+1. Herramientas (tool definitions)
+2. System prompt
+3. Mensajes (de más antiguo a más reciente)
+```
+
+Este orden determina cómo Claude construye el contexto cacheado. Se pueden agregar **hasta 4 breakpoints** en total por solicitud, lo que permite cachear secciones distintas de forma independiente (ej: herramientas + system prompt + parte del historial de conversación).
+![alt text](imagenes/image-102.png)
+
+#### 39.6 Umbral mínimo de tokens
+
+El caching no aplica a contenido corto. El contenido total acumulado hasta el breakpoint debe superar los **1024 tokens** para ser elegible:
+
+| Condición | Resultado |
+| --- | --- |
+| Contenido total < 1024 tokens | No se cachea, se procesa normalmente |
+| Contenido total ≥ 1024 tokens | Elegible para caching |
+
+> El umbral aplica al total acumulado hasta el breakpoint, no a cada bloque por separado. Un system prompt de 500 tokens más un documento de 600 tokens suma 1100 tokens — supera el umbral aunque ninguno lo alcance individualmente.
+![alt text](imagenes/image-103.png)
+
+---
+
+### Módulo 40: Prompt caching en acción
+
+Los dos módulos anteriores cubrieron el concepto y las reglas del caching. Este módulo muestra cómo implementarlo concretamente en una función `chat()` que maneje herramientas y system prompt con breakpoints de caché.
+
+Los candidatos más frecuentes para cachear son los **esquemas de herramientas** (que pueden llegar a ~1700 tokens) y los **system prompts largos** (hasta 6000+ tokens en asistentes de código). Ambos cambian raramente entre llamadas — ideal para caching.
+
+#### 40.1 Cachear los esquemas de herramientas
+
+El breakpoint de caché en herramientas se agrega al **último elemento** de la lista. La razón: Claude procesa las herramientas en orden, y el breakpoint indica "guardá en caché todo lo procesado hasta aquí". Si está en el último elemento, abarca todas las herramientas.
+
+Para evitar mutar el objeto original (lo que podría causar bugs si la lista se reordena o reutiliza), se trabaja con copias:
+
+```python
+if tools:
+    tools_clone = tools.copy()           # copia superficial de la lista
+    last_tool = tools_clone[-1].copy()   # copia del último elemento (dict)
+    last_tool["cache_control"] = {"type": "ephemeral"}  # agrega el breakpoint
+    tools_clone[-1] = last_tool          # reemplaza el último con la versión cacheada
+    params["tools"] = tools_clone        # usa la lista modificada en la solicitud
+```
+
+> Modificar `tools[-1]["cache_control"]` directamente también funciona, pero muta el objeto original. La copia protege contra efectos secundarios si la misma lista de herramientas se usa en múltiples lugares del código.
+
+#### 40.2 Cachear el system prompt
+
+El system prompt normalmente es un string simple. Para agregar un breakpoint, hay que convertirlo al formato expandido — una lista con un bloque de texto que incluya `cache_control`:
+
+```python
+if system:
+    params["system"] = [
+        {
+            "type": "text",
+            "text": system,                          # el contenido del system prompt
+            "cache_control": {"type": "ephemeral"}   # activa el breakpoint
+        }
+    ]
+```
+
+Sin el formato expandido, no hay lugar donde poner `cache_control`. Por eso el string simple no sirve cuando se quiere cachear.
+
+#### 40.3 Leer el estado de la caché en la respuesta
+
+La API devuelve información sobre qué ocurrió con la caché en el objeto `usage` de la respuesta:
+
+| Campo en `usage` | Cuándo aparece | Qué significa |
+| --- | --- | --- |
+| `cache_creation_input_tokens` | Primera solicitud | Claude escribió en la caché — tokens procesados y guardados |
+| `cache_read_input_tokens` | Solicitudes siguientes | Claude leyó de la caché — no reprocesó ese contenido |
+| `input_tokens` | Siempre | Tokens no cacheados procesados normalmente |
+
+**Ejemplo de progresión típica:**
+
+```text
+Solicitud 1: cache_creation_input_tokens=1772, cache_read_input_tokens=0
+Solicitud 2: cache_creation_input_tokens=0,    cache_read_input_tokens=1772
+Solicitud 3: cache_creation_input_tokens=0,    cache_read_input_tokens=1772
+```
+
+Si el contenido cambia entre solicitudes, `cache_creation_input_tokens` vuelve a aparecer — Claude invalidó la caché anterior y escribió una nueva.
+
+#### 40.4 Caching granular con múltiples breakpoints
+
+Si se tienen tanto herramientas como system prompt, cada uno puede tener su propio breakpoint. El resultado es caching independiente por componente:
+
+```text
+[Tools con cache_control]         → breakpoint 1
+[System prompt con cache_control] → breakpoint 2
+[Mensajes]                        → procesados normalmente
+```
+
+Si el system prompt cambia pero las herramientas no:
+
+```text
+→ cache_read_input_tokens para tools  (no cambió, se reutiliza la caché)
+→ cache_creation_input_tokens para system prompt  (cambió, se reescribe la caché)
+```
+
+> Este comportamiento granular es lo que hace útil tener múltiples breakpoints: si solo hubiera uno global, cualquier cambio en una parte invalida el caché de todo. Con breakpoints separados, solo se invalida la parte que cambió.
+
+#### 40.5 Cuándo conviene implementarlo
+
+| Condición | Recomendación |
+| --- | --- |
+| System prompt > 1024 tokens y cambia raramente | Agregar breakpoint — ahorro significativo |
+| Múltiples herramientas con schemas detallados | Cachear la lista de herramientas completa |
+| Aplicación con alta frecuencia de llamadas por hora | El caching amortiza bien — vale la pena |
+| Cada llamada lleva contenido completamente diferente | No hay beneficio — la caché nunca se reutiliza |
+
+> La caché dura 1 hora: está diseñada para aplicaciones con uso frecuente de la API, no para almacenamiento persistente entre sesiones separadas.
+
+---
+
+### Módulo 41: Ejecución de código y la API de archivos
+
+Hasta ahora, todas las capacidades de Claude operaban dentro del mensaje: texto, imágenes, PDFs, herramientas que Claude llama y el código devuelve resultados. Este módulo introduce dos características que expanden ese modelo: la **API de archivos** (para subir y referenciar archivos sin incluirlos en cada mensaje) y la **ejecución de código** (para que Claude escriba y ejecute Python real en un entorno aislado).
+
+Usadas por separado, cada una es útil. Usadas juntas, permiten delegarle a Claude tareas computacionales complejas — análisis de datos, generación de gráficos, procesamiento de documentos — con control total sobre las entradas y salidas.
+
+#### 41.1 API de archivos
+
+En los módulos anteriores, los archivos (PDFs, imágenes) se codificaban en base64 y se incluían directamente en cada mensaje. Esto funciona, pero tiene un costo: si el mismo archivo se referencia varias veces o es muy grande, se está enviando el mismo contenido repetidamente.
+
+La API de archivos resuelve esto con un flujo de dos pasos:
+
+```text
+1. Subir el archivo una sola vez → obtener un file_id
+2. En mensajes futuros, referenciar el file_id en lugar de incluir el contenido
+```
+
+```python
+# Paso 1 — subir el archivo (una llamada separada a la API)
+file_metadata = upload('streaming.csv')
+# file_metadata.id contiene el ID único del archivo
+
+# Paso 2 — referenciar el archivo por ID en un mensaje
+{
+    "type": "container_upload",
+    "file_id": file_metadata.id   # referencia al archivo subido
+}
+```
+
+| Método | Cuándo usarlo |
+| --- | --- |
+| **Base64 inline** | Archivos pequeños o de un solo uso |
+| **API de archivos** | Archivos grandes, reutilizados múltiples veces, o que entran al contenedor de ejecución |
+
+#### 41.2 Herramienta de ejecución de código
+
+La ejecución de código es una **herramienta del lado del servidor** — no requiere implementación propia. Se declara en la solicitud igual que cualquier tool, y Claude decide si y cuándo ejecutar código Python durante la respuesta.
+
+```python
+chat(
+    messages,
+    tools=[{
+        "type": "code_execution_20250522",  # herramienta predefinida por Anthropic
+        "name": "code_execution"
+    }]
+)
+```
+
+Características del entorno de ejecución:
+
+| Característica | Detalle |
+| --- | --- |
+| **Aislamiento** | Contenedor Docker dedicado por sesión |
+| **Acceso a red** | Ninguno — no puede hacer llamadas externas |
+| **Iteraciones** | Claude puede ejecutar código múltiples veces en una sola respuesta |
+| **Resultados** | Claude interpreta la salida y la incorpora a su análisis |
+| **Archivos generados** | Se almacenan en el contenedor, descargables via API de archivos |
+
+> La falta de acceso a red es el motivo por el que la API de archivos es la vía principal para meter datos al contenedor: no se puede hacer un `requests.get()` desde adentro.
+
+#### 41.3 Flujo completo: análisis de datos con CSV
+
+```python
+# 1. Subir el archivo de datos
+file_metadata = upload('streaming.csv')
+
+messages = []
+
+# 2. Construir el mensaje con el archivo y la tarea
+add_user_message(
+    messages,
+    [
+        {
+            "type": "text",
+            "text": """Run a detailed analysis to determine major drivers of churn.
+            Your final output should include at least one detailed plot summarizing your findings."""
+        },
+        {
+            "type": "container_upload",     # tipo especial para pasar archivos al contenedor
+            "file_id": file_metadata.id     # referencia al CSV subido previamente
+        },
+    ],
+)
+
+# 3. Llamar a chat con la herramienta de ejecución habilitada
+chat(
+    messages,
+    tools=[{"type": "code_execution_20250522", "name": "code_execution"}]
+)
+```
+
+Claude recibe el CSV dentro del contenedor, escribe código Python para analizarlo, lo ejecuta, interpreta los resultados y puede iterar — todo antes de generar la respuesta final.
+
+#### 41.4 Estructura de la respuesta
+
+Cuando Claude usa ejecución de código, la respuesta contiene bloques de distintos tipos mezclados:
+
+| Tipo de bloque | Contenido |
+| --- | --- |
+| `text` | Análisis, explicaciones e interpretaciones de Claude |
+| `tool_use` (server-side) | El código Python que Claude decidió ejecutar |
+| `code_execution_output` | Resultado de la ejecución (stdout, stderr, archivos generados) |
+
+Claude puede pasar por múltiples ciclos de escritura → ejecución → interpretación antes de entregar la respuesta final. Cada ciclo agrega un par de bloques `tool_use` + `code_execution_output`.
+
+#### 41.5 Descargar archivos generados
+
+Si Claude genera un gráfico u otro archivo durante la ejecución, queda almacenado en el contenedor y se puede descargar:
+
+```python
+# Buscar bloques type: "code_execution_output" en la respuesta
+# que contengan file_id para el contenido generado
+download_file("file_id_from_response")
+```
+
+---
+
+### Resumen de la Unidad 7: Características de Claude
+
+Esta unidad cubrió las capacidades avanzadas que van más allá del chat básico con texto.
+
+| Módulo | Tema | Concepto clave |
+| --- | --- | --- |
+| **34** | Pensamiento extendido | `thinking: {type: "enabled", budget_tokens: N}` — Claude razona antes de responder |
+| **35** | Soporte de imágenes | Bloque `"image"` con base64; costo = `(w×h)/750` tokens |
+| **36** | Compatibilidad con PDF | Bloque `"document"` con `application/pdf`; lee texto, tablas e imágenes incrustadas |
+| **37** | Citas | `citations: {enabled: True}` en el bloque documento; respuesta estructurada con `cited_text`, páginas y `document_index` |
+| **38** | Prompt caching — concepto | La caché guarda el preprocesamiento; dura 1 hora; útil solo con contenido repetido |
+| **39** | Prompt caching — reglas | `cache_control: {type: "ephemeral"}` en forma expandida; contenido idéntico requerido; umbral mínimo de 1024 tokens; hasta 4 breakpoints |
+| **40** | Prompt caching — en acción | Cachear tools y system prompt por separado; leer `cache_creation_input_tokens` vs `cache_read_input_tokens` |
+| **41** | API de archivos + ejecución de código | Subir archivos por ID; Claude ejecuta Python en Docker aislado; iterar → descargar resultados |
+
+**Patrón transversal de la unidad:** todas estas características extienden el bloque de contenido del mensaje. Imágenes, PDFs, documentos con citas, archivos para el contenedor — todos son bloques adicionales en la lista `content` del mensaje. El bloque `"type"` determina qué capacidad se activa.
+
+---
+
+## Unidad 8: MCP (Protocolo de Contexto del Modelo)
+
+Esta unidad cubre el Model Context Protocol — el estándar abierto que permite conectar Claude a servicios externos sin tener que implementar cada integración desde cero. Los módulos van desde los conceptos fundamentales hasta la implementación práctica de servidores y clientes MCP.
+
+---
+
+### Módulo 42: Presentamos MCP
+
+En los módulos anteriores, cuando Claude necesitaba interactuar con un servicio externo (buscar en la web, ejecutar código, leer un archivo), había que definir manualmente el esquema de la herramienta y escribir la función que la implementa. Para un par de herramientas esto es razonable. Para integraciones complejas — GitHub, bases de datos, sistemas de archivos, APIs de terceros — se convierte en un trabajo enorme de escritura, prueba y mantenimiento.
+
+**MCP (Model Context Protocol)** es un estándar que resuelve este problema desplazando esa responsabilidad: en lugar de que vos escribas las herramientas, un **servidor MCP** especializado ya las tiene definidas e implementadas. Tu aplicación solo se conecta al servidor y obtiene acceso a todas sus herramientas.
+
+#### 42.1 La diferencia fundamental: sin MCP vs. con MCP
+
+**Sin MCP** — vos sos responsable de todo:
+
+```text
+Tu aplicación
+    → define el esquema de cada herramienta (JSON)
+    → implementa la función que la ejecuta (Python/JS/etc.)
+    → mantiene la integración cuando la API externa cambia
+    → repite esto para cada funcionalidad del servicio
+```
+
+**Con MCP** — el servidor ya hizo ese trabajo:
+
+```text
+Tu aplicación
+    → se conecta al servidor MCP de GitHub
+    → recibe automáticamente todos los esquemas y funciones
+    → Claude puede usar esas herramientas directamente
+```
+
+#### 42.2 Qué provee un servidor MCP
+
+Un servidor MCP es una capa de abstracción sobre un servicio externo. Empaqueta tres tipos de recursos:
+
+| Recurso MCP | Qué es | Ejemplo con GitHub |
+| --- | --- | --- |
+| **Tools** | Funciones que Claude puede llamar | `list_pull_requests`, `create_issue` |
+| **Prompts** | Plantillas de prompts preconfiguradas | "Resume los PRs abiertos de este repo" |
+| **Resources** | Datos que Claude puede leer | Contenido de archivos, repositorios |
+
+> Las **tools** son el recurso más usado — son equivalentes a las herramientas que definíamos manualmente, pero ya escritas y mantenidas por el servidor MCP.
+
+#### 42.3 Quién crea los servidores MCP
+
+Cualquiera puede implementar un servidor MCP — es un estándar abierto. En la práctica:
+
+| Autor | Ejemplo |
+| --- | --- |
+| **El propio proveedor del servicio** | AWS publica un servidor MCP oficial para sus servicios |
+| **La comunidad** | Desarrolladores crean servidores para servicios populares |
+| **Vos mismo** | Podés crear un servidor MCP para tu propia API o sistema interno |
+
+#### 42.4 MCP vs. tool use — la distinción clave
+
+Es fácil confundirlos porque ambos involucran herramientas. La diferencia está en **quién escribe y mantiene** esas herramientas:
+
+| Aspecto | Tool use directo | Con MCP |
+| --- | --- | --- |
+| **Quién define el esquema** | Vos | El servidor MCP |
+| **Quién implementa la función** | Vos | El servidor MCP |
+| **Quién mantiene la integración** | Vos | El autor del servidor |
+| **Cuánto código escribís** | Mucho | Casi nada |
+
+> MCP no reemplaza el tool use — lo complementa. Por debajo, Claude sigue usando herramientas. Lo que cambia es que alguien más ya hizo el trabajo de definirlas e implementarlas. Conectarse a un servidor MCP es como importar una librería: obtenés funcionalidad lista para usar sin escribirla desde cero.
+
+---
+
+### Módulo 43: Clientes MCP
+
+El módulo anterior presentó MCP como concepto. Este módulo cubre el **cliente MCP** — el componente concreto que vive en tu aplicación y se encarga de toda la comunicación con los servidores MCP.
+
+El cliente es un puente: tu servidor no habla directamente con GitHub ni con ningún servicio externo. Habla con el cliente MCP, y el cliente MCP habla con el servidor MCP, que a su vez habla con el servicio. Esta separación de responsabilidades es lo que hace que la arquitectura sea limpia.
+
+#### 43.1 Independencia del transporte
+
+Una característica importante del protocolo MCP es que **no está atado a un mecanismo de comunicación específico**. El cliente y el servidor pueden comunicarse por distintos canales según el despliegue:
+
+| Transporte | Cuándo se usa |
+| --- | --- |
+| **Stdin/stdout** | Cliente y servidor en la misma máquina — el más común en desarrollo |
+| **HTTP** | Servidor MCP remoto, comunicación request/response |
+| **WebSockets** | Comunicación bidireccional en tiempo real con servidor remoto |
+
+> En la mayoría de los casos de desarrollo local, cliente y servidor MCP corren en la misma máquina y se comunican por stdin/stdout — el proceso del servidor MCP recibe mensajes por entrada estándar y responde por salida estándar.
+
+#### 43.2 Tipos de mensajes del protocolo
+
+El protocolo MCP define mensajes específicos para cada tipo de operación. Los dos más importantes son:
+
+| Mensaje | Dirección | Para qué sirve |
+| --- | --- | --- |
+| `ListToolsRequest` | Cliente → Servidor | "¿Qué herramientas tenés disponibles?" |
+| `ListToolsResult` | Servidor → Cliente | Lista de herramientas con sus esquemas |
+| `CallToolRequest` | Cliente → Servidor | "Ejecutá esta herramienta con estos argumentos" |
+| `CallToolResult` | Servidor → Cliente | Resultado de la ejecución de la herramienta |
+
+El flujo siempre es: primero listar herramientas (para saber qué hay disponible), luego llamar herramientas (para ejecutarlas cuando Claude lo pide).
+
+#### 43.3 Flujo completo de una solicitud
+
+Tomando como ejemplo "¿Qué repositorios tengo?" en un chatbot de GitHub, el flujo completo involucra 8 pasos:
+
+```text
+1. Usuario → Tu servidor       "¿Qué repositorios tengo?"
+
+2. Tu servidor → Cliente MCP   "Dame la lista de herramientas"
+3. Cliente MCP → Servidor MCP  ListToolsRequest
+4. Servidor MCP → Cliente MCP  ListToolsResult (herramientas de GitHub)
+
+5. Tu servidor → Claude        [pregunta del usuario + herramientas disponibles]
+6. Claude → Tu servidor        tool_use: list_repositories
+
+7. Tu servidor → Cliente MCP   "Ejecutá list_repositories"
+8. Cliente MCP → Servidor MCP  CallToolRequest
+   Servidor MCP → GitHub       llamada real a la API
+   GitHub → Servidor MCP       datos de repositorios
+   Servidor MCP → Cliente MCP  CallToolResult
+
+9. Tu servidor → Claude        [resultado de la herramienta]
+10. Claude → Tu servidor       respuesta final formateada
+11. Tu servidor → Usuario      "Tenés 12 repositorios: ..."
+```
+
+> Son muchos pasos, pero cada componente tiene una única responsabilidad. El cliente MCP abstrae los pasos 3-4 y 7-8 — tu servidor solo llama métodos del cliente, sin saber nada de cómo se comunica con el servidor MCP por debajo.
+
+#### 43.4 Por qué esta arquitectura tiene sentido
+
+La separación cliente/servidor MCP permite sustituir partes del sistema sin tocar el resto:
+
+- Cambiar el **transporte** (de stdin a HTTP) sin cambiar la lógica de la aplicación
+- Cambiar el **servidor MCP** (de GitHub a GitLab) sin cambiar cómo el cliente hace las solicitudes
+- Agregar nuevos servidores MCP sin modificar el código existente — solo conectar uno nuevo al cliente
+
+---
+
+### Módulo 44: Configuración del proyecto
+
+Este módulo introduce el proyecto práctico de la unidad: un chatbot de línea de comandos que implementa **ambos lados** de la arquitectura MCP — cliente y servidor — para entender cómo se comunican entre sí.
+
+#### 44.1 Qué se está construyendo
+
+El proyecto es un chatbot CLI que permite interactuar con una colección de documentos en memoria. Tiene dos componentes principales:
+
+| Componente | Archivo | Responsabilidad |
+| --- | --- | --- |
+| **Cliente MCP** | `mcp_client.py` | Gestiona las interacciones del usuario y se comunica con el servidor MCP |
+| **Servidor MCP** | `mcp_server.py` | Expone herramientas para leer y actualizar documentos |
+| **Entrada principal** | `main.py` | Orquesta cliente, servidor y la interfaz de chat |
+
+El servidor provee dos herramientas:
+
+- **Leer documento** — devuelve el contenido de un documento por nombre
+- **Actualizar documento** — modifica el contenido de un documento existente
+
+Los documentos se almacenan en memoria (sin base de datos) para simplificar el foco en MCP.
+
+#### 44.2 Nota arquitectónica importante
+
+En proyectos reales, normalmente se implementa **uno de los dos lados**, no ambos:
+
+| Caso real | Qué implementás |
+| --- | --- |
+| Querés exponer tu servicio a otros | Solo el **servidor MCP** |
+| Querés conectarte a servidores existentes | Solo el **cliente MCP** |
+| Este proyecto (educativo) | **Ambos** — para entender cómo se comunican |
+
+#### 44.3 Configuración y ejecución
+
+```bash
+# 1. Agregar la API key al archivo de entorno
+# Editar .env y agregar: ANTHROPIC_API_KEY=sk-...
+
+# 2. Instalar dependencias (con UV — recomendado)
+uv run main.py
+
+# 3. O con Python estándar
+python main.py
+```
+
+Al iniciar correctamente, aparece una interfaz de chat. Una consulta simple como "¿cuánto es 1+1?" confirma que Claude está respondiendo antes de agregar la funcionalidad MCP.
+
+> La ventaja de construir ambos lados en un proyecto de aprendizaje es que podés ver exactamente qué mensaje sale del cliente, qué recibe el servidor, y qué responde — sin la capa de opacidad que tendría un servidor MCP externo.
+
+---
+
+### Módulo 45: Definir herramientas con MCP
+
+En los módulos de tool use anteriores, definir una herramienta requería escribir manualmente un esquema JSON con el nombre, descripción y cada parámetro. El SDK oficial de Python para MCP elimina ese trabajo: inferimos el esquema automáticamente desde las **type hints** y los **decoradores** de Python.
+
+El resultado es que definir una herramienta MCP se parece más a escribir una función Python normal que a mantener un JSON.
+
+#### 45.1 Inicializar el servidor
+
+```python
+from mcp.server.fastmcp import FastMCP
+
+# Una línea para crear el servidor completo
+mcp = FastMCP("DocumentMCP", log_level="ERROR")
+
+# Documentos en memoria (dict: id → contenido)
+docs = {
+    "deposition.md": "This deposition covers the testimony of Angela Smith, P.E.",
+    "report.pdf":    "The report details the state of a 20m condenser tower.",
+    "financials.docx": "These financials outline the project's budget and expenditure",
+    "plan.md":       "The plan outlines the steps for the project's implementation.",
+    "spec.txt":      "These specifications define the technical requirements for the equipment"
+}
+```
+
+| Parámetro de `FastMCP` | Descripción |
+| --- | --- |
+| `"DocumentMCP"` | Nombre del servidor — aparece en la negociación del protocolo |
+| `log_level="ERROR"` | Reduce el ruido de logs durante el desarrollo |
+
+#### 45.2 Definir herramientas con el decorador `@mcp.tool`
+
+En lugar de escribir esquemas JSON, se decoran funciones Python normales. El SDK genera el esquema automáticamente a partir de los tipos y las descripciones de `Field`:
+
+**Herramienta de lectura:**
+
+```python
+from pydantic import Field
+
+@mcp.tool(
+    name="read_doc_contents",
+    description="Read the contents of a document and return it as a string."
+)
+def read_document(
+    doc_id: str = Field(description="Id of the document to read")  # Field provee la descripción del parámetro
+):
+    if doc_id not in docs:
+        raise ValueError(f"Doc with id {doc_id} not found")  # error descriptivo que Claude puede interpretar
+
+    return docs[doc_id]  # devuelve el contenido como string
+```
+
+**Herramienta de edición (búsqueda y reemplazo):**
+
+```python
+@mcp.tool(
+    name="edit_document",
+    description="Edit a document by replacing a string in the document's content with a new string."
+)
+def edit_document(
+    doc_id: str = Field(description="Id of the document that will be edited"),
+    old_str: str = Field(description="The text to replace. Must match exactly, including whitespace."),
+    new_str: str = Field(description="The new text to insert in place of the old text.")
+):
+    if doc_id not in docs:
+        raise ValueError(f"Doc with id {doc_id} not found")
+
+    docs[doc_id] = docs[doc_id].replace(old_str, new_str)  # reemplazo in-place en el dict
+```
+
+#### 45.3 Qué hace el SDK por vos automáticamente
+
+| Tarea | Sin SDK (manual) | Con SDK |
+| --- | --- | --- |
+| Definir el esquema JSON de la herramienta | Escribir JSON a mano | Inferido de type hints |
+| Describir cada parámetro | Campo en el JSON | `Field(description=...)` |
+| Validar tipos de entrada | Implementar manualmente | Pydantic lo hace automáticamente |
+| Registrar la herramienta en el protocolo | Código de integración | Lo maneja `@mcp.tool` |
+
+> `Field` es de Pydantic — la misma librería que usa FastAPI. Si ya conocés FastAPI, la sintaxis de definición de herramientas MCP te va a resultar familiar. Si no, el patrón es simple: cada parámetro de la función es un parámetro de la herramienta, y `Field` agrega la descripción que Claude lee para entender qué esperar.
+
+#### 45.4 Manejo de errores
+
+Ambas herramientas levantan un `ValueError` cuando el `doc_id` no existe. Esto no es un detalle menor: Claude recibe el mensaje de error y puede reaccionar — por ejemplo, informarle al usuario que el documento no existe en lugar de devolver un resultado vacío o incorrecto. Los errores descriptivos son parte del contrato de la herramienta.
+
+---
+
+### Módulo 46: El inspector del servidor MCP
+
+Antes de conectar un servidor MCP a Claude o a una aplicación completa, conviene poder probar las herramientas de forma aislada. El SDK de Python incluye un **inspector basado en navegador** que permite ejecutar herramientas individualmente, ver sus resultados y depurar problemas sin montar todo el stack.
+
+#### 46.1 Iniciar el inspector
+
+```bash
+# Con el entorno Python activado, desde el directorio del proyecto:
+mcp dev mcp_server.py
+```
+
+Esto levanta un servidor de desarrollo en el puerto **6277** y muestra una URL local para abrir en el navegador. La interfaz del inspector se carga con un panel de control que muestra el estado del servidor.
+
+> El inspector MCP está en desarrollo activo — la interfaz visual puede diferir de capturas de pantalla, pero la funcionalidad principal (listar y ejecutar herramientas) se mantiene estable.
+
+#### 46.2 Flujo de prueba de una herramienta
+
+```text
+1. Clic en "Connect"        → inicia el servidor MCP
+2. Ir a sección "Tools"     → muestra las herramientas registradas
+3. Clic en "List Tools"     → lista todas las herramientas disponibles
+4. Seleccionar una herramienta → abre su interfaz de prueba con campos para los parámetros
+5. Completar los parámetros → ej: doc_id = "deposition.md"
+6. Clic en "Run Tool"       → ejecuta la herramienta y muestra el resultado
+```
+
+Se pueden encadenar operaciones: editar un documento y luego ejecutar la herramienta de lectura inmediatamente para confirmar que el cambio se aplicó correctamente.
+
+#### 46.3 Por qué importa este flujo de trabajo
+
+| Sin inspector | Con inspector |
+| --- | --- |
+| Conectar el servidor a Claude para cada prueba | Probar herramientas individuales directamente |
+| Depurar a través de la conversación completa | Aislar el problema en la herramienta específica |
+| Ciclo de prueba lento | Ciclo de desarrollo rápido y enfocado |
+
+> El inspector convierte el desarrollo de servidores MCP en un proceso iterativo similar al desarrollo de APIs con Postman o Insomnia: implementás una herramienta, la probás en aislamiento, corregís, repetís — sin necesidad de montar el cliente ni la integración con Claude para cada prueba.
+
+---
+
+### Módulo 47: Implementación de un cliente MCP
+
+El servidor MCP expone herramientas. El cliente es el componente que las consume — es quien llama a `ListTools` para saber qué hay disponible y a `CallTool` para ejecutarlas cuando Claude lo pide. Este módulo muestra cómo implementar ese cliente en Python.
+
+#### 47.1 Estructura del cliente
+
+El cliente tiene dos capas:
+
+| Capa | Qué es | Responsabilidad |
+| --- | --- | --- |
+| **`ClientSession`** | Del SDK de Python de MCP | La conexión real con el servidor — maneja el protocolo |
+| **`MCPClient`** (clase propia) | Clase personalizada que envuelve la sesión | Simplifica el uso y garantiza la limpieza de recursos |
+
+La sesión del cliente requiere limpieza explícita al cerrarse (cerrar la conexión, liberar recursos). Encapsularla en una clase propia con `async with` hace que esa limpieza sea automática — el código que usa el cliente no tiene que preocuparse por eso.
+
+#### 47.2 Los dos métodos clave
+
+```python
+# Obtener la lista de herramientas disponibles en el servidor
+async def list_tools(self) -> list[types.Tool]:
+    result = await self.session().list_tools()  # envía ListToolsRequest al servidor
+    return result.tools                          # devuelve la lista de Tool objects
+
+# Ejecutar una herramienta específica con sus argumentos
+async def call_tool(
+    self, tool_name: str, tool_input: dict
+) -> types.CallToolResult | None:
+    return await self.session().call_tool(tool_name, tool_input)  # envía CallToolRequest
+```
+
+| Método | Mensaje MCP enviado | Qué devuelve |
+| --- | --- | --- |
+| `list_tools()` | `ListToolsRequest` | Lista de `Tool` con esquemas |
+| `call_tool(name, input)` | `CallToolRequest` | `CallToolResult` con la salida de la herramienta |
+
+#### 47.3 Cómo se prueba el cliente en aislamiento
+
+```python
+async with MCPClient(
+    command="uv", args=["run", "mcp_server.py"]  # lanza el servidor como subproceso
+) as client:
+    result = await client.list_tools()
+    print(result)  # imprime los esquemas de read_doc_contents y edit_document
+```
+
+`async with` garantiza que al salir del bloque — ya sea por éxito o por error — la sesión se cierra correctamente. Esto es el mismo patrón que `with open(...)` para archivos, pero asíncrono.
+
+#### 47.4 Flujo completo cliente ↔ servidor ↔ Claude
+
+Con cliente y servidor funcionando, el flujo de una pregunta sobre un documento es:
+
+```text
+1. App → client.list_tools()           → servidor devuelve herramientas disponibles
+2. App → Claude [pregunta + herramientas]
+3. Claude → App  tool_use: read_doc_contents(doc_id="report.pdf")
+4. App → client.call_tool("read_doc_contents", {"doc_id": "report.pdf"})
+5. Servidor ejecuta la función → devuelve contenido del documento
+6. App → Claude [resultado de la herramienta]
+7. Claude → App  respuesta final al usuario
+```
+
+> El cliente actúa como puente: la app no sabe nada de cómo funciona el servidor por dentro, y el servidor no sabe nada de Claude. El cliente es la capa que los conecta, exponiendo solo dos métodos simples (`list_tools` y `call_tool`) independientemente de la complejidad del servidor.
+
+---
+
+### Módulo 48: Definir recursos MCP
+
+Hasta ahora, las herramientas MCP realizan **acciones** — leer un documento, editarlo. Los **recursos** son el complemento: exponen **datos** que el cliente puede consultar, sin ejecutar ninguna acción. La distinción es conceptualmente similar a la diferencia entre un endpoint `POST` (hace algo) y un `GET` (devuelve datos) en una API HTTP.
+
+Un caso de uso típico son las menciones `@documento` en un chat: cuando el usuario escribe `@`, la app necesita obtener la lista de documentos disponibles (un recurso de lista); cuando el usuario selecciona uno, la app obtiene su contenido (un recurso con parámetro). Ninguna de esas dos operaciones modifica nada — solo recuperan datos.
+
+#### 48.1 Tipos de recursos
+
+| Tipo | URI ejemplo | Cuándo usarlo |
+| --- | --- | --- |
+| **Directo** | `docs://documents` | URI fijo — siempre devuelve lo mismo (ej: lista de todos los docs) |
+| **Con plantilla** | `docs://documents/{doc_id}` | URI parametrizado — el parámetro se resuelve en tiempo de ejecución |
+
+Para recursos con plantilla, el SDK extrae automáticamente los parámetros de la URI y los pasa como argumentos a la función.
+
+#### 48.2 Implementación con `@mcp.resource`
+
+```python
+# Recurso directo — lista de todos los documentos disponibles
+@mcp.resource(
+    "docs://documents",          # URI fija
+    mime_type="application/json" # indica al cliente que el dato es JSON
+)
+def list_docs() -> list[str]:
+    return list(docs.keys())     # el SDK serializa la lista a JSON automáticamente
+
+# Recurso con plantilla — obtiene el contenido de un documento específico
+@mcp.resource(
+    "docs://documents/{doc_id}", # {doc_id} se extrae de la URI y se pasa como argumento
+    mime_type="text/plain"
+)
+def fetch_doc(doc_id: str) -> str:
+    if doc_id not in docs:
+        raise ValueError(f"Doc with id {doc_id} not found")
+    return docs[doc_id]
+```
+
+El cliente accede a estos recursos enviando un `ReadResourceRequest` con la URI correspondiente. El servidor responde con los datos.
+
+#### 48.3 Tipos MIME comunes
+
+| `mime_type` | Qué indica |
+| --- | --- |
+| `"application/json"` | Datos estructurados — listas, dicts |
+| `"text/plain"` | Texto sin formato |
+| Cualquier MIME válido | El SDK serializa automáticamente el valor de retorno |
+
+> El SDK se encarga de serializar el valor devuelto por la función. No hay que llamar a `json.dumps()` manualmente — retornar una lista o un dict es suficiente si el `mime_type` es `application/json`.
+
+#### 48.4 Diferencia clave: recursos vs. herramientas
+
+| Aspecto | Recursos | Herramientas |
+| --- | --- | --- |
+| **Propósito** | Exponer datos (leer) | Realizar acciones (leer, escribir, ejecutar) |
+| **Decorador** | `@mcp.resource("uri")` | `@mcp.tool(name=..., description=...)` |
+| **Mensaje MCP** | `ReadResourceRequest` | `CallToolRequest` |
+| **Analogía HTTP** | `GET` | `POST` / `PUT` / `DELETE` |
+| **Quién lo llama** | El cliente directamente | Claude lo decide y el cliente lo ejecuta |
+
+> La distinción práctica es sobre el **iniciador**: los recursos los solicita la aplicación cuando los necesita (ej: al cargar la lista de documentos para el autocompletado). Las herramientas las invoca Claude cuando decide que las necesita para responder.
+
+---
+
+### Módulo 49: Acceso a los recursos desde el cliente
+
+El módulo anterior mostró cómo **definir** recursos en el servidor. Este módulo muestra cómo el cliente los **consume** — cómo solicitar un recurso por URI, recibir la respuesta y convertirla al tipo Python correcto según su `mime_type`.
+
+La ventaja de los recursos frente a las herramientas en este contexto es la eficiencia: el contenido del documento llega directamente en el mensaje a Claude, sin necesidad de un ciclo tool_use → tool_result. Ideal para el patrón de mención `@documento`.
+
+#### 49.1 Implementar `read_resource` en el cliente
+
+```python
+import json
+from pydantic import AnyUrl  # garantiza el tipo correcto para la URI
+
+async def read_resource(self, uri: str) -> Any:
+    # Envía ReadResourceRequest al servidor con la URI del recurso
+    result = await self.session().read_resource(AnyUrl(uri))
+
+    # La respuesta contiene una lista de contenidos; normalmente solo hay uno
+    resource = result.contents[0]
+
+    # Manejar el tipo de contenido según el mime_type
+    if isinstance(resource, types.TextResourceContents):
+        if resource.mimeType == "application/json":
+            return json.loads(resource.text)  # convierte el JSON string a dict/list de Python
+        return resource.text                  # texto plano: devolver como string directamente
+```
+
+| Tipo de contenido | `mimeType` | Procesamiento |
+| --- | --- | --- |
+| JSON estructurado | `"application/json"` | `json.loads(resource.text)` → dict o list |
+| Texto plano | `"text/plain"` | `resource.text` → string |
+
+#### 49.2 Flujo de una mención `@documento`
+
+Cuando el usuario escribe `@report.pdf` en el chat:
+
+```text
+1. App detecta la mención "@report.pdf"
+2. App → client.read_resource("docs://documents/report.pdf")
+3. Cliente → servidor MCP  ReadResourceRequest(uri="docs://documents/report.pdf")
+4. Servidor ejecuta fetch_doc("report.pdf") → devuelve el contenido
+5. Cliente parsea la respuesta según mime_type
+6. App inserta el contenido del documento en el mensaje que va a Claude
+7. Claude recibe el contenido directamente — sin necesitar una tool call
+```
+
+> La diferencia clave con las herramientas: en el paso 6 el contenido ya está en el mensaje. Claude no tiene que pedir el documento — ya lo tiene. Esto elimina un ciclo completo de tool_use → tool_result, haciendo la interacción más rápida.
+
+#### 49.3 Por qué `AnyUrl` en lugar de un string simple
+
+`AnyUrl` es una clase de Pydantic que valida que la cadena sea una URL bien formada antes de enviarla al servidor. El SDK de MCP lo requiere para el parámetro URI de `read_resource` — pasar un string directamente causaría un error de tipo.
+
+#### 49.4 Separación de responsabilidades
+
+```text
+mcp_client.py  → sabe cómo hablar con el servidor (protocolo, tipos, parsing)
+main.py        → sabe cómo usar los datos (cuándo buscar un recurso, qué hacer con él)
+```
+
+El cliente expone `read_resource(uri)` como interfaz limpia. La lógica de la aplicación no necesita saber nada de `AnyUrl`, `TextResourceContents` ni `json.loads` — solo llama al método y recibe el dato Python listo para usar.
+
+---
+
+### Módulo 50: Definir indicaciones (prompts) en MCP
+
+Los servidores MCP pueden exponer tres tipos de recursos: herramientas (acciones), recursos (datos) y **prompts** (instrucciones prediseñadas). Los prompts son plantillas de mensajes cuidadosamente elaboradas que el cliente puede solicitar y usar directamente, en lugar de que cada usuario tenga que redactar su propia versión.
+
+La diferencia no es solo de comodidad — es de calidad. Un usuario que pide "convertí este documento a Markdown" obtiene un resultado razonable. Un prompt bien diseñado por el autor del servidor, con instrucciones específicas sobre estructura, encabezados y formato, produce resultados consistentemente mejores.
+
+#### 50.1 Cómo funcionan los prompts MCP
+
+Cuando el cliente solicita un prompt al servidor, el servidor devuelve una **lista de mensajes** (`UserMessage`, `AssistantMessage`) que se pueden enviar directamente a Claude. El prompt no es texto libre — es estructura de conversación lista para usar.
+
+```text
+Cliente → GetPromptRequest(name="format", args={doc_id: "report.pdf"})
+Servidor → lista de mensajes con el prompt completo interpolado
+Cliente → envía esos mensajes a Claude
+```
+
+#### 50.2 Implementación con `@mcp.prompt`
+
+```python
+from mcp.server.fastmcp import base
+from pydantic import Field
+
+@mcp.prompt(
+    name="format",
+    description="Rewrites the contents of the document in Markdown format."
+)
+def format_document(
+    doc_id: str = Field(description="Id of the document to format")  # parámetro interpolado en el prompt
+) -> list[base.Message]:                                              # devuelve lista de mensajes
+    prompt = f"""
+Your goal is to reformat a document to be written with markdown syntax.
+
+The id of the document you need to reformat is:
+
+{doc_id}
+
+Add in headers, bullet points, tables, etc as necessary. Feel free to add in extra formatting.
+Use the 'edit_document' tool to edit the document after reformatting.
+"""
+    return [
+        base.UserMessage(prompt)  # un mensaje de usuario con las instrucciones completas
+    ]
+```
+
+| Elemento | Descripción |
+| --- | --- |
+| `@mcp.prompt(name=..., description=...)` | Registra el prompt en el servidor con nombre y descripción visibles para el cliente |
+| `Field(description=...)` | Igual que en herramientas — documenta el parámetro para que el cliente sepa qué pasar |
+| `-> list[base.Message]` | Tipo de retorno — siempre una lista de mensajes (`UserMessage`, `AssistantMessage`) |
+| `base.UserMessage(texto)` | Crea un mensaje de rol `user` con el texto del prompt |
+
+#### 50.3 Los tres recursos de un servidor MCP comparados
+
+| Tipo | Decorador | Qué devuelve | Para qué sirve |
+| --- | --- | --- | --- |
+| **Tool** | `@mcp.tool` | Resultado de ejecutar una acción | Realizar operaciones (leer, editar, buscar) |
+| **Resource** | `@mcp.resource` | Datos crudos (texto, JSON) | Proveer contexto o información |
+| **Prompt** | `@mcp.prompt` | Lista de mensajes listos para Claude | Instrucciones prediseñadas y reutilizables |
+
+#### 50.4 Buenas prácticas para diseñar prompts MCP
+
+| Práctica | Por qué importa |
+| --- | --- |
+| Instrucciones específicas y detalladas | Los prompts vagos producen resultados inconsistentes |
+| Probar con múltiples entradas diferentes | Un prompt puede funcionar bien con un doc_id y fallar con otro |
+| Referenciar las herramientas disponibles en el servidor | El prompt puede indicarle a Claude qué tool usar (ej: `edit_document`) |
+| Descripciones claras en `name` y `description` | El cliente las muestra al usuario para que sepa qué hace cada prompt |
+
+> Los prompts son la forma en que el autor del servidor MCP comparte su expertise con los usuarios. No son atajos de comodidad — son instrucciones que reflejan conocimiento específico del dominio que los usuarios no tendrían por sí mismos.
+
+---
+
+### Módulo 51: Indicaciones en el cliente
+
+El módulo anterior mostró cómo **definir** prompts en el servidor. Este módulo completa el par: cómo el cliente los **consume** — listarlos y obtenerlos con argumentos interpolados para enviarlos directamente a Claude.
+
+#### 51.1 Listar los prompts disponibles
+
+```python
+async def list_prompts(self) -> list[types.Prompt]:
+    result = await self.session().list_prompts()  # envía ListPromptsRequest al servidor
+    return result.prompts                          # devuelve la lista de prompts con nombre y descripción
+```
+
+Esto es el equivalente de `list_tools()` pero para prompts. El cliente obtiene todos los prompts disponibles en el servidor — útil para construir una interfaz donde el usuario pueda seleccionar cuál usar (ej: `/formato`, `/resumen`).
+
+#### 51.2 Obtener un prompt con argumentos
+
+```python
+async def get_prompt(self, prompt_name: str, args: dict[str, str]):
+    result = await self.session().get_prompt(prompt_name, args)  # envía GetPromptRequest
+    return result.messages  # devuelve la lista de mensajes lista para enviar a Claude
+```
+
+El parámetro `args` es un diccionario con los valores que se interpolarán en la función del prompt del servidor. Por ejemplo, para el prompt `"format"` que espera `doc_id`:
+
+```python
+messages = await client.get_prompt("format", {"doc_id": "report.pdf"})
+# El servidor ejecuta format_document(doc_id="report.pdf")
+# y devuelve la lista de mensajes con el doc_id ya interpolado
+```
+
+#### 51.3 Los tres métodos del cliente MCP — resumen
+
+| Método | Mensaje MCP | Qué devuelve |
+| --- | --- | --- |
+| `list_tools()` | `ListToolsRequest` | Lista de herramientas con esquemas |
+| `list_prompts()` | `ListPromptsRequest` | Lista de prompts con nombre y descripción |
+| `get_prompt(name, args)` | `GetPromptRequest` | Lista de mensajes listos para Claude |
+| `call_tool(name, input)` | `CallToolRequest` | Resultado de ejecutar una herramienta |
+| `read_resource(uri)` | `ReadResourceRequest` | Datos del recurso (texto o JSON) |
+
+#### 51.4 Flujo completo desde la CLI
+
+Cuando el usuario escribe `/formato` en la interfaz de línea de comandos:
+
+```text
+1. Usuario escribe "/" → app lista los prompts disponibles (list_prompts)
+2. Usuario selecciona "formato"
+3. App pide argumentos al usuario → "¿Qué documento?" → "report.pdf"
+4. App → client.get_prompt("format", {"doc_id": "report.pdf"})
+5. Servidor interpola doc_id en la función → devuelve lista de mensajes
+6. App envía esos mensajes directamente a Claude
+7. Claude usa las herramientas del servidor (edit_document) para completar la tarea
+```
+
+> Los mensajes que devuelve `get_prompt` son la entrada completa para Claude — no hay que construir el prompt manualmente. El cliente recibe la conversación ya armada y la manda tal cual. Esto es lo que hace que los prompts MCP sean reutilizables: el servidor define la estructura, el cliente solo pasa los argumentos.
+
+---
+
+### Resumen de la Unidad 8: MCP
+
+Esta unidad cubrió el Model Context Protocol de punta a punta — desde el concepto hasta la implementación completa de cliente y servidor.
+
+| Módulo | Tema | Concepto clave |
+| --- | --- | --- |
+| **42** | Presentamos MCP | MCP delega la definición e implementación de herramientas a servidores especializados; complementa tool use, no lo reemplaza |
+| **43** | Clientes MCP | El cliente envía `ListToolsRequest` y `CallToolRequest`; independiente del transporte (stdin, HTTP, WebSockets) |
+| **44** | Configuración del proyecto | Proyecto educativo con cliente + servidor propios; en producción se implementa solo uno de los dos |
+| **45** | Definir herramientas | `@mcp.tool` + type hints + `Field` → el SDK genera el esquema JSON automáticamente; `ValueError` para errores descriptivos |
+| **46** | Inspector del servidor | `mcp dev mcp_server.py` levanta una UI en el puerto 6277 para probar herramientas en aislamiento |
+| **47** | Implementar el cliente | `list_tools()` + `call_tool()` en una clase que encapsula `ClientSession`; `async with` garantiza limpieza |
+| **48** | Definir recursos | `@mcp.resource("uri")` — recursos directos (URI fija) y con plantilla (`{param}`); devuelven datos, no ejecutan acciones |
+| **49** | Acceso a recursos | `read_resource(uri)` en el cliente; `AnyUrl` para validación; parsear según `mimeType` (`json.loads` vs string) |
+| **50** | Definir prompts | `@mcp.prompt` devuelve `list[base.Message]`; plantillas de alta calidad listas para enviar a Claude |
+| **51** | Prompts en el cliente | `list_prompts()` + `get_prompt(name, args)`; el servidor interpola los args y devuelve la conversación armada |
+
+**Los tres recursos de un servidor MCP:**
+
+| Recurso | Decorador | Iniciador | Para qué |
+| --- | --- | --- | --- |
+| **Tool** | `@mcp.tool` | Claude (decide cuándo llamarla) | Ejecutar acciones |
+| **Resource** | `@mcp.resource` | La aplicación (cuando necesita datos) | Proveer contexto |
+| **Prompt** | `@mcp.prompt` | El usuario (selecciona qué usar) | Instrucciones prediseñadas |
+
+**Patrón transversal de la unidad:** el SDK de Python abstrae el protocolo en ambos lados. En el servidor, decoradores (`@mcp.tool`, `@mcp.resource`, `@mcp.prompt`) convierten funciones Python en endpoints MCP. En el cliente, métodos simples (`list_tools`, `call_tool`, `read_resource`, `get_prompt`) ocultan los mensajes del protocolo. El desarrollador solo escribe lógica de negocio.
