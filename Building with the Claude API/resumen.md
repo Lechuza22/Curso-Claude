@@ -6656,17 +6656,17 @@ El curso cubre el ciclo completo de construir aplicaciones con Claude, desde la 
 
 ---
 
-### Unidad 1 — Fundamentos (Módulos 1–2)
+### [Unidad 1](#unidad-1-introducción) — Fundamentos (Módulos [1](#módulo-1-introducción-a-claude-y-sus-modelos)–[2](#módulo-2-ciclo-de-vida-de-una-solicitud-a-claude))
 
 **¿Qué es Claude y cómo funciona una solicitud?**
 
 Establece el vocabulario base. Los tres modelos (Opus / Sonnet / Haiku) y su tradeoff inteligencia-costo-velocidad son la primera decisión de diseño que aparece en casi todas las unidades siguientes. El ciclo de vida de 5 pasos (cliente → backend → API → modelo → respuesta) es la anatomía de toda llamada a la API.
 
-**Relación con el resto:** La elección de modelo (U1) resuena en U5 (herramientas complejas → Opus), U6 (RAG → Haiku para embeddings), U8 (MCP), y U10 (enrutamiento usa Haiku para clasificar, Opus para generar).
+**Relación con el resto:** La elección de modelo ([U1](#unidad-1-introducción)) resuena en [U5](#unidad-5-tools) (herramientas complejas → Opus), [U6](#unidad-6-rag-y-búsqueda-agencial) (RAG → Haiku para embeddings), [U8](#unidad-8-mcp-protocolo-de-contexto-del-modelo) (MCP), y [U10](#unidad-10-agentes-y-flujos-de-trabajo) (enrutamiento usa Haiku para clasificar, Opus para generar).
 
 ---
 
-### Unidad 2 — Acceso a la API (Módulos 3–8)
+### [Unidad 2](#unidad-2-acceso-a-claude-mediante-api) — Acceso a la API (Módulos [3](#módulo-3-hacer-una-solicitud-primera-llamada-a-la-api)–[8](#módulo-8-datos-estructurados))
 
 **Los bloques básicos de construcción.**
 
@@ -6674,43 +6674,43 @@ Cubre las primitivas fundamentales que aparecen en todas las unidades posteriore
 
 | Concepto | Por qué importa después |
 | --- | --- |
-| Llamada básica a la API (M3) | Base de todo lo demás |
-| Conversaciones multi-turno (M4) | Prerequisito directo para Tools (U5) y Agentes (U10) |
-| System prompt (M5) | Reaparece en U10 como instrumento de inspección ambiental |
-| Temperatura (M6) | Afecta la creatividad en generación (U5) y la consistencia en agentes (U10) |
-| Streaming (M7) | Técnica de UX para respuestas largas; relevante en agentes de larga duración |
-| Datos estructurados (M8) | Prerequisito para los schemas de herramientas en U5 y U8 |
+| Llamada básica a la API ([M3](#módulo-3-hacer-una-solicitud-primera-llamada-a-la-api)) | Base de todo lo demás |
+| Conversaciones multi-turno ([M4](#módulo-4-conversaciones-de-múltiples-turnos)) | Prerequisito directo para Tools ([U5](#unidad-5-tools)) y Agentes ([U10](#unidad-10-agentes-y-flujos-de-trabajo)) |
+| System prompt ([M5](#módulo-5-system-prompts)) | Reaparece en [U10](#unidad-10-agentes-y-flujos-de-trabajo) como instrumento de inspección ambiental |
+| Temperatura ([M6](#módulo-6-temperatura)) | Afecta la creatividad en generación ([U5](#unidad-5-tools)) y la consistencia en agentes ([U10](#unidad-10-agentes-y-flujos-de-trabajo)) |
+| Streaming ([M7](#módulo-7-transmisión-de-respuesta-streaming)) | Técnica de UX para respuestas largas; relevante en agentes de larga duración |
+| Datos estructurados ([M8](#módulo-8-datos-estructurados)) | Prerequisito para los schemas de herramientas en [U5](#unidad-5-tools) y [U8](#unidad-8-mcp-protocolo-de-contexto-del-modelo) |
 
-**Relación clave:** Los datos estructurados (M8) y las conversaciones multi-turno (M4) son los dos cimientos sobre los que se construye todo el sistema de herramientas en U5.
+**Relación clave:** Los datos estructurados ([M8](#módulo-8-datos-estructurados)) y las conversaciones multi-turno ([M4](#módulo-4-conversaciones-de-múltiples-turnos)) son los dos cimientos sobre los que se construye todo el sistema de herramientas en [U5](#unidad-5-tools).
 
 ---
 
-### Unidad 3 — Evaluación (Módulo 9)
+### [Unidad 3](#unidad-3-evaluación-inmediata) — Evaluación (Módulo [9](#módulo-9-evaluación-de-indicaciones))
 
 **¿Cómo saber si Claude hace lo correcto?**
 
 Introduce el concepto de evaluar respuestas antes de ir a producción. Es la unidad más metodológica — no agrega features sino criterio de ingeniería. La idea central: nunca desplegar un sistema que no se puede medir.
 
-**Relación con el resto:** El patrón Evaluador-Optimizador de U10 (M56) es la automatización programática de este mismo principio: un evaluador juzga el output y un productor lo mejora en bucle.
+**Relación con el resto:** El patrón Evaluador-Optimizador de [U10](#unidad-10-agentes-y-flujos-de-trabajo) ([M56](#módulo-56-agentes-y-flujos-de-trabajo)) es la automatización programática de este mismo principio: un evaluador juzga el output y un productor lo mejora en bucle.
 
 ---
 
-### Unidad 4 — Ingeniería de Prompts (Módulos 10–14)
+### [Unidad 4](#unidad-4-ingeniería-de-indicaciones) — Ingeniería de Prompts (Módulos [10](#módulo-10-ingeniería-rápida--proceso-iterativo)–[14](#módulo-14-proporcionar-ejemplos-few-shot-prompting))
 
 **Cómo hablarle bien a Claude.**
 
 Cuatro técnicas concretas que mejoran la calidad de cualquier llamada:
 
-- **Proceso iterativo (M10):** nunca el primer prompt es el mejor; probar y medir.
-- **Claridad y especificidad (M11–12):** Claude es literal — la ambigüedad produce resultados ambiguos.
-- **XML tags (M13):** estructura el input para que Claude no mezcle instrucciones con datos.
-- **Few-shot (M14):** mostrar ejemplos es más efectivo que describir el formato esperado.
+- **Proceso iterativo ([M10](#módulo-10-ingeniería-rápida--proceso-iterativo)):** nunca el primer prompt es el mejor; probar y medir.
+- **Claridad y especificidad ([M11](#módulo-11-ser-claro-y-directo)–[12](#módulo-12-ser-específico)):** Claude es literal — la ambigüedad produce resultados ambiguos.
+- **XML tags ([M13](#módulo-13-estructura-con-etiquetas-xml)):** estructura el input para que Claude no mezcle instrucciones con datos.
+- **Few-shot ([M14](#módulo-14-proporcionar-ejemplos-few-shot-prompting)):** mostrar ejemplos es más efectivo que describir el formato esperado.
 
-**Relación clave:** Las XML tags de M13 son exactamente la estructura que se usa en los system prompts de agentes en U10. El few-shot de M14 reaparece en los prompts especializados del enrutamiento (M59). La iteración de M10 es la filosofía subyacente al evaluador-optimizador de M56.
+**Relación clave:** Las XML tags de [M13](#módulo-13-estructura-con-etiquetas-xml) son exactamente la estructura que se usa en los system prompts de agentes en [U10](#unidad-10-agentes-y-flujos-de-trabajo). El few-shot de [M14](#módulo-14-proporcionar-ejemplos-few-shot-prompting) reaparece en los prompts especializados del enrutamiento ([M59](#módulo-59-flujos-de-trabajo-de-enrutamiento)). La iteración de [M10](#módulo-10-ingeniería-rápida--proceso-iterativo) es la filosofía subyacente al evaluador-optimizador de [M56](#módulo-56-agentes-y-flujos-de-trabajo).
 
 ---
 
-### Unidad 5 — Herramientas (Módulos 15–26)
+### [Unidad 5](#unidad-5-tools) — Herramientas (Módulos [15](#módulo-15-introducción-al-uso-de-herramientas)–[26](#módulo-26-la-herramienta-de-búsqueda-web))
 
 **Darle capacidades de acción a Claude.**
 
@@ -6726,11 +6726,11 @@ Concepto de tool (M15)
     → Tools built-in: text_editor (M25) y web_search (M26)
 ```
 
-**Relación clave:** Todo U10 se construye sobre este sistema. El bucle agente de M60 es exactamente el bucle multi-turno de M21–22 pero con Claude tomando la iniciativa en lugar del desarrollador. Los schemas JSON de M18 son los mismos que se definen en U8 (MCP) y U10.
+**Relación clave:** Todo [U10](#unidad-10-agentes-y-flujos-de-trabajo) se construye sobre este sistema. El bucle agente de [M60](#módulo-60-agentes-y-herramientas) es exactamente el bucle multi-turno de [M21](#módulo-21-conversaciones-de-varios-turnos-con-herramientas)–[22](#módulo-22-implementar-múltiples-giros) pero con Claude tomando la iniciativa en lugar del desarrollador. Los schemas JSON de [M18](#módulo-18-esquemas-de-herramientas) son los mismos que se definen en [U8](#unidad-8-mcp-protocolo-de-contexto-del-modelo) (MCP) y [U10](#unidad-10-agentes-y-flujos-de-trabajo).
 
 ---
 
-### Unidad 6 — RAG (Módulos 27–33)
+### [Unidad 6](#unidad-6-rag-y-búsqueda-agencial) — RAG (Módulos [27](#módulo-27-presentamos-la-generación-aumentada-de-recuperación-rag)–[33](#módulo-33-una-canalización-rag-de-índice-múltiple))
 
 **Darle memoria de largo plazo a Claude.**
 
@@ -6742,32 +6742,32 @@ Problema (M27) → Chunking (M28) → Embeddings (M29)
     → BM25 léxico (M32) → Índice múltiple (M33)
 ```
 
-**Relación clave:** RAG es un workflow de encadenamiento (U10/M58) aplicado a recuperación de información: buscar → recuperar → generar. La búsqueda BM25 (M32) + embeddings (M29) combinados en M33 es exactamente el patrón de paralelización (M57) aplicado a búsqueda. MCP (U8) puede exponer un índice RAG como recurso o herramienta, conectando U6 con U8.
+**Relación clave:** RAG es un workflow de encadenamiento ([U10](#unidad-10-agentes-y-flujos-de-trabajo)/[M58](#módulo-58-encadenamiento-de-flujos-de-trabajo)) aplicado a recuperación de información: buscar → recuperar → generar. La búsqueda BM25 ([M32](#módulo-32-búsqueda-léxica-bm25)) + embeddings ([M29](#módulo-29-incrustaciones-de-texto)) combinados en [M33](#módulo-33-una-canalización-rag-de-índice-múltiple) es exactamente el patrón de paralelización ([M57](#módulo-57-flujos-de-trabajo-de-paralelización)) aplicado a búsqueda. MCP ([U8](#unidad-8-mcp-protocolo-de-contexto-del-modelo)) puede exponer un índice RAG como recurso o herramienta, conectando [U6](#unidad-6-rag-y-búsqueda-agencial) con [U8](#unidad-8-mcp-protocolo-de-contexto-del-modelo).
 
 ---
 
-### Unidad 7 — Características Avanzadas de Claude (Módulos 34–41)
+### [Unidad 7](#unidad-7-características-de-claude) — Características Avanzadas de Claude (Módulos [34](#módulo-34-pensamiento-extendido)–[41](#módulo-41-ejecución-de-código-y-la-api-de-archivos))
 
 **Las capacidades nativas que amplifican todo lo anterior.**
 
 | Feature | Cuándo usarla | Relación |
 | --- | --- | --- |
-| Extended thinking (M34) | Razonamiento complejo, matemáticas, código difícil | Hace al agente (U10) más capaz en tareas de varios pasos |
-| Imágenes (M35) | Input visual | Prerequisito del ejemplo imagen-a-CAD de M56 |
-| PDF (M36) | Documentos | Input para pipelines RAG (U6) |
-| Citas (M37) | Respuestas con fuente verificable | Complementa RAG (U6) |
-| Prompt caching (M38–40) | Reducir costo en system prompts largos y repetidos | Crítico en agentes (U10) donde el system prompt se repite en cada turno |
-| Files API / Code execution (M41) | Análisis de datos, generación de artefactos | Herramienta abstracta ideal para agentes (M60) |
+| Extended thinking ([M34](#módulo-34-pensamiento-extendido)) | Razonamiento complejo, matemáticas, código difícil | Hace al agente ([U10](#unidad-10-agentes-y-flujos-de-trabajo)) más capaz en tareas de varios pasos |
+| Imágenes ([M35](#módulo-35-soporte-de-imágenes)) | Input visual | Prerequisito del ejemplo imagen-a-CAD de [M56](#módulo-56-agentes-y-flujos-de-trabajo) |
+| PDF ([M36](#módulo-36-compatibilidad-con-pdf)) | Documentos | Input para pipelines RAG ([U6](#unidad-6-rag-y-búsqueda-agencial)) |
+| Citas ([M37](#módulo-37-citas)) | Respuestas con fuente verificable | Complementa RAG ([U6](#unidad-6-rag-y-búsqueda-agencial)) |
+| Prompt caching ([M38](#módulo-38-almacenamiento-en-caché-de-mensajes-prompt-caching)–[40](#módulo-40-prompt-caching-en-acción)) | Reducir costo en system prompts largos y repetidos | Crítico en agentes ([U10](#unidad-10-agentes-y-flujos-de-trabajo)) donde el system prompt se repite en cada turno |
+| Files API / Code execution ([M41](#módulo-41-ejecución-de-código-y-la-api-de-archivos)) | Análisis de datos, generación de artefactos | Herramienta abstracta ideal para agentes ([M60](#módulo-60-agentes-y-herramientas)) |
 
-**Relación clave:** El prompt caching (M38–40) es especialmente relevante en U10: en el bucle agente, el system prompt se envía en cada iteración del loop. Sin caching, el costo escala linealmente con los turnos.
+**Relación clave:** El prompt caching ([M38](#módulo-38-almacenamiento-en-caché-de-mensajes-prompt-caching)–[40](#módulo-40-prompt-caching-en-acción)) es especialmente relevante en [U10](#unidad-10-agentes-y-flujos-de-trabajo): en el bucle agente, el system prompt se envía en cada iteración del loop. Sin caching, el costo escala linealmente con los turnos.
 
 ---
 
-### Unidad 8 — MCP (Módulos 42–51)
+### [Unidad 8](#unidad-8-mcp-protocolo-de-contexto-del-modelo) — MCP (Módulos [42](#módulo-42-presentamos-mcp)–[51](#módulo-51-indicaciones-en-el-cliente))
 
 **El estándar abierto para conectar Claude con cualquier sistema externo.**
 
-MCP generaliza el sistema de herramientas de U5: en lugar de definir funciones en código, se define un servidor MCP que expone herramientas, recursos y prompts. Cualquier cliente compatible (Claude Code, tu app) puede consumirlos.
+MCP generaliza el sistema de herramientas de [U5](#unidad-5-tools): en lugar de definir funciones en código, se define un servidor MCP que expone herramientas, recursos y prompts. Cualquier cliente compatible (Claude Code, tu app) puede consumirlos.
 
 ```text
 Concepto MCP (M42) → Clientes (M43) → Configuración (M44)
@@ -6775,21 +6775,21 @@ Concepto MCP (M42) → Clientes (M43) → Configuración (M44)
     → Recursos MCP (M48–49) → Prompts MCP (M50–51)
 ```
 
-**Relación clave:** MCP es la versión estandarizada y distribuible de las herramientas de U5. Donde U5 define tools en Python, U8 las expone como servidor reutilizable. Claude Code (U9) usa MCP para extenderse con servidores externos. Los agentes de U10 pueden consumir servidores MCP como fuente de herramientas abstractas.
+**Relación clave:** MCP es la versión estandarizada y distribuible de las herramientas de [U5](#unidad-5-tools). Donde [U5](#unidad-5-tools) define tools en Python, [U8](#unidad-8-mcp-protocolo-de-contexto-del-modelo) las expone como servidor reutilizable. Claude Code ([U9](#unidad-9-aplicaciones-de-anthropic--claude-code-y-computer-use)) usa MCP para extenderse con servidores externos. Los agentes de [U10](#unidad-10-agentes-y-flujos-de-trabajo) pueden consumir servidores MCP como fuente de herramientas abstractas.
 
 ---
 
-### Unidad 9 — Claude Code y Computer Use (Módulos 52–55)
+### [Unidad 9](#unidad-9-aplicaciones-de-anthropic--claude-code-y-computer-use) — Claude Code y Computer Use (Módulos [52](#módulo-52-aplicaciones-de-anthropic)–[55](#módulo-55-mejoras-con-servidores-mcp))
 
 **Un agente real como caso de estudio.**
 
-Claude Code es la demostración práctica de todo el curso: un agente (U10) que usa herramientas abstractas (U5/M60), con inspección ambiental (M61), extensible via MCP (U8), capaz de procesar archivos (U7), con conversaciones multi-turno (U2) y system prompt estructurado (U4).
+Claude Code es la demostración práctica de todo el curso: un agente ([U10](#unidad-10-agentes-y-flujos-de-trabajo)) que usa herramientas abstractas ([U5](#unidad-5-tools)/[M60](#módulo-60-agentes-y-herramientas)), con inspección ambiental ([M61](#módulo-61-inspección-ambiental)), extensible via MCP ([U8](#unidad-8-mcp-protocolo-de-contexto-del-modelo)), capaz de procesar archivos ([U7](#unidad-7-características-de-claude)), con conversaciones multi-turno ([U2](#unidad-2-acceso-a-claude-mediante-api)) y system prompt estructurado ([U4](#unidad-4-ingeniería-de-indicaciones)).
 
-**Relación clave:** Claude Code es el caso de estudio que integra U2 + U4 + U5 + U7 + U8 + U10 en un solo sistema. Estudiarlo es ver cómo interactúan todos los conceptos del curso.
+**Relación clave:** Claude Code es el caso de estudio que integra [U2](#unidad-2-acceso-a-claude-mediante-api) + [U4](#unidad-4-ingeniería-de-indicaciones) + [U5](#unidad-5-tools) + [U7](#unidad-7-características-de-claude) + [U8](#unidad-8-mcp-protocolo-de-contexto-del-modelo) + [U10](#unidad-10-agentes-y-flujos-de-trabajo) en un solo sistema. Estudiarlo es ver cómo interactúan todos los conceptos del curso.
 
 ---
 
-### Unidad 10 — Agentes y Workflows (Módulos 56–62)
+### [Unidad 10](#unidad-10-agentes-y-flujos-de-trabajo) — Agentes y Workflows (Módulos [56](#módulo-56-agentes-y-flujos-de-trabajo)–[62](#módulo-62-flujos-de-trabajo-vs-agentes--decisión-arquitectónica))
 
 **Cómo orquestar todo lo anterior en sistemas complejos.**
 
@@ -6797,13 +6797,13 @@ La unidad final sintetiza el curso con cinco patrones arquitectónicos:
 
 | Patrón | Módulo | Relación con otras unidades |
 | --- | --- | --- |
-| Evaluador-Optimizador | M56 | Automatiza la evaluación de U3 en un bucle programático |
-| Paralelización | M57 | Usa asyncio + múltiples llamadas API (U2) con herramientas (U5) |
-| Encadenamiento | M58 | Multi-turno (U2/M4) + procesamiento intermedio de código |
-| Enrutamiento | M59 | Clasificación primero (Haiku/U1) + prompts especializados (U4) |
-| Agentes + tools | M60 | Bucle multi-turno (U2) + herramientas abstractas (U5) + system prompt (U4) |
-| Inspección ambiental | M61 | System prompt (U2/M5) que instruye cuándo observar + tools de lectura (U5) |
-| Decisión final | M62 | Criterios de ingeniería: priorizar workflows, agentes como último recurso |
+| Evaluador-Optimizador | [M56](#módulo-56-agentes-y-flujos-de-trabajo) | Automatiza la evaluación de [U3](#unidad-3-evaluación-inmediata) en un bucle programático |
+| Paralelización | [M57](#módulo-57-flujos-de-trabajo-de-paralelización) | Usa asyncio + múltiples llamadas API ([U2](#unidad-2-acceso-a-claude-mediante-api)) con herramientas ([U5](#unidad-5-tools)) |
+| Encadenamiento | [M58](#módulo-58-encadenamiento-de-flujos-de-trabajo) | Multi-turno ([U2](#unidad-2-acceso-a-claude-mediante-api)/[M4](#módulo-4-conversaciones-de-múltiples-turnos)) + procesamiento intermedio de código |
+| Enrutamiento | [M59](#módulo-59-flujos-de-trabajo-de-enrutamiento) | Clasificación primero (Haiku/[U1](#unidad-1-introducción)) + prompts especializados ([U4](#unidad-4-ingeniería-de-indicaciones)) |
+| Agentes + tools | [M60](#módulo-60-agentes-y-herramientas) | Bucle multi-turno ([U2](#unidad-2-acceso-a-claude-mediante-api)) + herramientas abstractas ([U5](#unidad-5-tools)) + system prompt ([U4](#unidad-4-ingeniería-de-indicaciones)) |
+| Inspección ambiental | [M61](#módulo-61-inspección-ambiental) | System prompt ([U2](#unidad-2-acceso-a-claude-mediante-api)/[M5](#módulo-5-system-prompts)) que instruye cuándo observar + tools de lectura ([U5](#unidad-5-tools)) |
+| Decisión final | [M62](#módulo-62-flujos-de-trabajo-vs-agentes--decisión-arquitectónica) | Criterios de ingeniería: priorizar workflows, agentes como último recurso |
 
 ---
 
@@ -6819,4 +6819,4 @@ Llamada básica (U2)
     = Agente robusto y medible (U10)
 ```
 
-La progresión es acumulativa: cada unidad agrega una capa. No se puede hacer agentes sin herramientas; no se pueden usar herramientas sin entender los schemas; los schemas requieren datos estructurados; los datos estructurados son U2. El curso no tiene desvíos — cada módulo construye sobre el anterior.
+La progresión es acumulativa: cada unidad agrega una capa. No se puede hacer agentes sin herramientas; no se pueden usar herramientas sin entender los schemas; los schemas requieren datos estructurados; los datos estructurados son [U2](#unidad-2-acceso-a-claude-mediante-api). El curso no tiene desvíos — cada módulo construye sobre el anterior.
