@@ -4446,7 +4446,11 @@ Esta unidad cubre el Model Context Protocol — el estándar abierto que permite
 
 En los módulos anteriores, cuando Claude necesitaba interactuar con un servicio externo (buscar en la web, ejecutar código, leer un archivo), había que definir manualmente el esquema de la herramienta y escribir la función que la implementa. Para un par de herramientas esto es razonable. Para integraciones complejas — GitHub, bases de datos, sistemas de archivos, APIs de terceros — se convierte en un trabajo enorme de escritura, prueba y mantenimiento.
 
+![alt text](imagenes/image-104.png)
+
 **MCP (Model Context Protocol)** es un estándar que resuelve este problema desplazando esa responsabilidad: en lugar de que vos escribas las herramientas, un **servidor MCP** especializado ya las tiene definidas e implementadas. Tu aplicación solo se conecta al servidor y obtiene acceso a todas sus herramientas.
+
+![alt text](imagenes/image-105.png)
 
 #### 42.1 La diferencia fundamental: sin MCP vs. con MCP
 
@@ -4469,6 +4473,8 @@ Tu aplicación
     → Claude puede usar esas herramientas directamente
 ```
 
+![alt text](imagenes/image-106.png)
+
 #### 42.2 Qué provee un servidor MCP
 
 Un servidor MCP es una capa de abstracción sobre un servicio externo. Empaqueta tres tipos de recursos:
@@ -4479,6 +4485,8 @@ Un servidor MCP es una capa de abstracción sobre un servicio externo. Empaqueta
 | **Prompts** | Plantillas de prompts preconfiguradas | "Resume los PRs abiertos de este repo" |
 | **Resources** | Datos que Claude puede leer | Contenido de archivos, repositorios |
 
+![alt text](imagenes/image-107.png)
+![alt text](imagenes/image-108.png)
 > Las **tools** son el recurso más usado — son equivalentes a las herramientas que definíamos manualmente, pero ya escritas y mantenidas por el servidor MCP.
 
 #### 42.3 Quién crea los servidores MCP
@@ -4514,6 +4522,8 @@ El cliente es un puente: tu servidor no habla directamente con GitHub ni con nin
 
 #### 43.1 Independencia del transporte
 
+![alt text](imagenes/image-109.png)
+
 Una característica importante del protocolo MCP es que **no está atado a un mecanismo de comunicación específico**. El cliente y el servidor pueden comunicarse por distintos canales según el despliegue:
 
 | Transporte | Cuándo se usa |
@@ -4522,9 +4532,14 @@ Una característica importante del protocolo MCP es que **no está atado a un me
 | **HTTP** | Servidor MCP remoto, comunicación request/response |
 | **WebSockets** | Comunicación bidireccional en tiempo real con servidor remoto |
 
+![alt text](imagenes/image-110.png)
+
 > En la mayoría de los casos de desarrollo local, cliente y servidor MCP corren en la misma máquina y se comunican por stdin/stdout — el proceso del servidor MCP recibe mensajes por entrada estándar y responde por salida estándar.
 
 #### 43.2 Tipos de mensajes del protocolo
+
+![alt text](imagenes/image-111.png)
+![alt text](imagenes/image-112.png)
 
 El protocolo MCP define mensajes específicos para cada tipo de operación. Los dos más importantes son:
 
@@ -4538,7 +4553,7 @@ El protocolo MCP define mensajes específicos para cada tipo de operación. Los 
 El flujo siempre es: primero listar herramientas (para saber qué hay disponible), luego llamar herramientas (para ejecutarlas cuando Claude lo pide).
 
 #### 43.3 Flujo completo de una solicitud
-
+![alt text](imagenes/image-113.png)
 Tomando como ejemplo "¿Qué repositorios tengo?" en un chatbot de GitHub, el flujo completo involucra 8 pasos:
 
 ```text
@@ -4561,6 +4576,7 @@ Tomando como ejemplo "¿Qué repositorios tengo?" en un chatbot de GitHub, el fl
 10. Claude → Tu servidor       respuesta final formateada
 11. Tu servidor → Usuario      "Tenés 12 repositorios: ..."
 ```
+![alt text](imagenes/image-114.png)
 
 > Son muchos pasos, pero cada componente tiene una única responsabilidad. El cliente MCP abstrae los pasos 3-4 y 7-8 — tu servidor solo llama métodos del cliente, sin saber nada de cómo se comunica con el servidor MCP por debajo.
 
@@ -4581,6 +4597,8 @@ Este módulo introduce el proyecto práctico de la unidad: un chatbot de línea 
 #### 44.1 Qué se está construyendo
 
 El proyecto es un chatbot CLI que permite interactuar con una colección de documentos en memoria. Tiene dos componentes principales:
+
+![alt text](imagenes/image-115.png)
 
 | Componente | Archivo | Responsabilidad |
 | --- | --- | --- |
@@ -5096,3 +5114,1709 @@ Esta unidad cubrió el Model Context Protocol de punta a punta — desde el conc
 | **Prompt** | `@mcp.prompt` | El usuario (selecciona qué usar) | Instrucciones prediseñadas |
 
 **Patrón transversal de la unidad:** el SDK de Python abstrae el protocolo en ambos lados. En el servidor, decoradores (`@mcp.tool`, `@mcp.resource`, `@mcp.prompt`) convierten funciones Python en endpoints MCP. En el cliente, métodos simples (`list_tools`, `call_tool`, `read_resource`, `get_prompt`) ocultan los mensajes del protocolo. El desarrollador solo escribe lógica de negocio.
+
+---
+
+## Unidad 9: Aplicaciones de Anthropic — Claude Code y Computer Use
+
+Esta unidad examina dos aplicaciones reales de Anthropic como casos de estudio de agentes de IA: Claude Code (asistente de programación en terminal) y Computer Use (control de entornos de escritorio). Entender cómo están construidas es la base para diseñar agentes propios.
+
+---
+
+### Módulo 52: Aplicaciones de Anthropic
+
+Esta unidad tiene un doble propósito: explorar dos herramientas concretas de Anthropic **y** usarlas como lentes para entender qué hace que un agente de IA funcione bien en la práctica.
+
+#### 52.1 Las dos aplicaciones
+
+| Aplicación | Dónde corre | Qué puede hacer |
+| --- | --- | --- |
+| **Claude Code** | Terminal / línea de comandos | Editar archivos, corregir errores, responder preguntas de código, asistir flujos de desarrollo |
+| **Computer Use** | Entorno de escritorio completo | Navegar sitios web, interactuar con aplicaciones de escritorio, realizar tareas que requieren navegación visual |
+
+La diferencia clave es el **entorno de acción**: Claude Code opera sobre archivos y procesos de terminal; Computer Use opera sobre una interfaz gráfica completa, lo que amplía drásticamente el rango de tareas posibles.
+
+#### 52.2 Por qué son casos de estudio para agentes
+
+Ambas aplicaciones demuestran los principios que hacen efectivo a un agente:
+
+| Principio | Cómo se ve en Claude Code / Computer Use |
+| --- | --- |
+| **Integración de herramientas** | Usan herramientas para leer archivos, ejecutar comandos, hacer clic, escribir texto |
+| **Ejecución multi-paso** | Completan tareas que requieren múltiples acciones secuenciales |
+| **Interacción con el entorno** | Observan el estado del entorno y reaccionan a él |
+| **Resolución autónoma de problemas** | Toman decisiones sin requerir instrucción explícita en cada paso |
+
+> La progresión de la unidad es intencional: Claude Code primero (más acotado, más fácil de seguir), luego Computer Use (más amplio), y finalmente el concepto general de agentes — construyendo comprensión desde lo concreto hacia lo abstracto.
+
+---
+
+### Módulo 53: Configuración de Claude Code
+
+Claude Code es un asistente de programación que corre directamente en la terminal — no en una interfaz web, sino integrado en el flujo de trabajo de desarrollo. La idea es tener a Claude disponible en el mismo contexto donde ya trabajás: el mismo directorio, los mismos archivos, la misma terminal.
+
+#### 53.1 Herramientas disponibles en Claude Code
+
+Claude Code no es solo un chat con código — tiene acceso a herramientas reales que le permiten actuar sobre el proyecto:
+
+| Herramienta | Qué puede hacer |
+| --- | --- |
+| **Operaciones con archivos** | Buscar, leer y editar archivos del proyecto |
+| **Acceso a terminal** | Ejecutar comandos directamente desde la conversación |
+| **Acceso web** | Buscar documentación, obtener ejemplos de código |
+| **Servidores MCP** | Conectar herramientas adicionales (bases de datos, APIs, servicios externos) |
+
+La integración con MCP es especialmente relevante dado lo que cubrimos en la unidad anterior: cualquier servidor MCP que construyas puede conectarse a Claude Code para extender sus capacidades.
+
+**Compatibilidad:** macOS, Windows (WSL) y Linux.
+
+#### 53.2 Instalación en tres pasos
+
+```bash
+# 1. Verificar si Node.js ya está instalado
+npm help   # si devuelve ayuda, Node.js está disponible
+
+# 2. Instalar Claude Code globalmente via npm
+npm install -g @anthropic-ai/claude-code
+
+# 3. Iniciar sesión con la cuenta de Anthropic
+claude     # la primera vez pide autenticación
+```
+
+Una vez configurado, el comando `claude` queda disponible en cualquier directorio desde la terminal.
+
+> Claude Code corre con las mismas credenciales de la cuenta de Anthropic. No requiere configuración adicional de API keys en el proyecto — la autenticación se maneja una sola vez durante el setup.
+
+---
+
+### Módulo 54: Claude Code en acción
+
+Claude Code no es solo un generador de código — es un **socio colaborativo** que puede trabajar en todas las fases de un proyecto: desde entender la base de código existente, planificar una solución, implementarla y verificarla con pruebas. Cuanto más contexto y estructura se le da, mejores resultados produce.
+
+#### 54.1 El archivo CLAUDE.md — memoria persistente del proyecto
+
+El primer paso en cualquier proyecto es ejecutar `/init`. Claude analiza todo el código fuente — estructura, dependencias, estilo, arquitectura — y resume lo aprendido en un archivo `CLAUDE.md`. Este archivo se incluye automáticamente como contexto en todas las conversaciones futuras.
+
+| Tipo de CLAUDE.md | Alcance | Versionado en Git |
+| --- | --- | --- |
+| **Proyecto** | Compartido entre todos los ingenieros | Sí |
+| **Local** | Solo en tu máquina, notas personales | No |
+| **Usuario** | Aplica a todos tus proyectos | No |
+
+```bash
+# Agregar una nota rápida al CLAUDE.md desde la terminal:
+# Always use descriptive variable names
+# Claude preguntará si la agrega a proyecto, local o usuario
+```
+
+> `CLAUDE.md` es la forma en que Claude recuerda las convenciones del proyecto entre sesiones. Es el equivalente a la documentación interna que leería un nuevo desarrollador antes de empezar.
+
+#### 54.2 Flujo de trabajo estándar: contexto → plan → implementación
+
+El patrón más efectivo para trabajar con Claude Code tiene tres pasos deliberadamente separados:
+
+```text
+Paso 1 — Dar contexto
+> Read the math.py and document.py files
+(Claude entiende los patrones de código existentes antes de escribir nada)
+
+Paso 2 — Planificar sin implementar todavía
+> Plan to implement document_path_to_markdown tool. Do not write any code yet.
+(Claude propone el enfoque y los pasos — vos revisás y ajustás)
+
+Paso 3 — Implementar el plan aprobado
+> Implement the plan
+(Claude escribe código basado en el contexto y el plan ya validado)
+```
+
+Separar planificación e implementación es clave: evita que Claude tome decisiones de diseño sin tu input y produce código más alineado con lo que realmente querés.
+
+#### 54.3 Flujo de trabajo guiado por pruebas (TDD)
+
+Para resultados más robustos, se puede usar un enfoque basado en pruebas:
+
+```text
+1. Dar contexto    → Claude entiende el código existente
+2. Proponer tests  → Claude piensa qué casos de prueba validarían la nueva función
+3. Escribir tests  → Claude implementa los tests seleccionados
+4. Implementar     → Claude escribe código hasta que todos los tests pasen
+```
+
+Este enfoque da a Claude **criterios de éxito claros** — en lugar de escribir código y esperar que funcione, tiene una definición concreta de "listo".
+
+#### 54.4 Comandos de Claude Code
+
+| Comando | Qué hace |
+| --- | --- |
+| `/init` | Escanea el código fuente y genera `CLAUDE.md` |
+| `/clear` | Borra el historial de conversación y resetea el contexto |
+| `#` + texto | Agrega una nota rápida al `CLAUDE.md` sin abrir el archivo |
+
+Además de estos comandos, Claude Code puede encargarse de tareas de desarrollo rutinarias directamente desde la conversación: preparar y confirmar cambios en Git, ejecutar pruebas, gestionar dependencias — sin necesidad de alternar entre editor y terminal.
+
+---
+
+### Módulo 55: Mejoras con servidores MCP
+
+Claude Code tiene un **cliente MCP integrado**, lo que significa que puede conectarse a cualquier servidor MCP y usar sus herramientas, recursos y prompts directamente desde la terminal. Esto convierte todo lo aprendido en la Unidad 8 en extensiones concretas del flujo de trabajo de desarrollo.
+
+#### 55.1 Registrar un servidor MCP en Claude Code
+
+```bash
+# Formato general
+claude mcp add [nombre-del-servidor] [comando-para-iniciarlo]
+
+# Ejemplo: servidor de procesamiento de documentos
+claude mcp add documents uv run main.py
+```
+
+Una vez registrado, Claude Code se conecta automáticamente al servidor cuando se inicia. El servidor queda disponible en todas las sesiones — no hay que registrarlo cada vez.
+
+#### 55.2 Ejemplo: herramienta personalizada de documentos
+
+Con un servidor MCP que expone una herramienta `document_path_to_markdown`, Claude puede convertir PDFs y archivos Word directamente desde la conversación:
+
+```text
+> Convertí el archivo tests/fixtures/mcp_docs.docx a Markdown
+→ Claude detecta que existe la herramienta document_path_to_markdown
+→ La llama con el path del archivo
+→ Devuelve el contenido convertido
+```
+
+#### 55.3 Servidores MCP populares para desarrollo
+
+| Servidor | Qué agrega a Claude Code |
+| --- | --- |
+| `sentry-mcp` | Acceso a errores de producción registrados en Sentry |
+| `playwright-mcp` | Automatización de navegador para testing y debugging |
+| `figma-context-mcp` | Acceso a diseños de Figma |
+| `mcp-atlassian` | Lectura de tickets de Jira y páginas de Confluence |
+| `firecrawl-mcp-server` | Web scraping desde la conversación |
+| `slack-mcp` | Publicar mensajes y responder hilos en Slack |
+
+#### 55.4 Flujo de trabajo completo con múltiples servidores
+
+El verdadero potencial está en combinar varios servidores para que Claude opere dentro del ecosistema de herramientas que ya usás:
+
+```text
+1. Sentry MCP      → Claude lee el error de producción
+2. Jira MCP        → Claude entiende los requisitos del ticket relacionado
+3. Código          → Claude implementa la solución en el repositorio
+4. Slack MCP       → Claude notifica al equipo que el trabajo está listo
+```
+
+> Cada servidor MCP que se registra en Claude Code le añade capacidades sin modificar Claude Code en sí. Es el mismo principio que en la Unidad 8: los servidores MCP son extensiones componibles — se pueden combinar libremente según las necesidades del proyecto.
+
+---
+
+### Resumen de la Unidad 9: Claude Code y Computer Use
+
+Esta unidad cubrió Claude Code como caso de estudio de agente de IA y su extensión mediante MCP.
+
+| Módulo | Tema | Concepto clave |
+| --- | --- | --- |
+| **52** | Introducción | Claude Code y Computer Use como casos de estudio de agentes; demuestran integración de herramientas, ejecución multi-paso e interacción con el entorno |
+| **53** | Configuración | `npm install -g @anthropic-ai/claude-code` + `claude`; funciona en macOS, WSL y Linux |
+| **54** | Claude Code en acción | Flujo contexto → plan → implementación; `CLAUDE.md` como memoria persistente; `/init`, `/clear`, `#` |
+| **55** | Mejoras con MCP | `claude mcp add [nombre] [comando]`; ecosistema de servidores MCP; flujos multi-servidor para todo el ciclo de desarrollo |
+
+**Patrón transversal:** Claude Code es en sí mismo un agente — percibe el entorno (archivos, terminal, web), decide qué herramientas usar, actúa y observa el resultado. Los servidores MCP amplían ese entorno de percepción y acción sin cambiar el núcleo del agente.
+
+---
+
+## Unidad 10: Agentes y Flujos de Trabajo
+
+### Módulo 56: Agentes y Flujos de Trabajo
+
+#### 56.1 ¿Qué son los flujos de trabajo y los agentes?
+
+Cuando una tarea es demasiado compleja para resolverse en una sola solicitud a Claude, existen dos estrategias:
+
+- **Flujo de trabajo (workflow):** una serie de llamadas a Claude con pasos predefinidos por el desarrollador.
+- **Agente (agent):** Claude recibe un objetivo y un conjunto de herramientas, y decide por sí mismo cómo completarlo.
+
+La diferencia no está en la tecnología — ambos usan llamadas a la API y herramientas — sino en **quién controla el flujo**: el código o Claude.
+
+> Nota: A lo largo de este curso ya creaste ambas cosas. Cuando le diste herramientas a Claude y le pediste que completara una tarea sin decirle exactamente cómo, eso fue un agente.
+
+---
+
+#### 56.2 ¿Cuándo usar cada estrategia?
+
+![alt text](imagenes/image-116.png)
+
+| Criterio | Flujo de trabajo | Agente |
+| --- | --- | --- |
+| Comprensión del problema | Sabes exactamente los pasos necesarios | No sabes qué pasos ni qué parámetros se necesitarán |
+| Control del flujo | Lo define el desarrollador en código | Lo decide Claude en tiempo de ejecución |
+| Predictibilidad | Alta — mismos pasos siempre | Variable — Claude adapta su plan a cada caso |
+| Casos de uso típicos | Pipelines bien definidos, apps con UX acotada | Asistentes generales, tareas abiertas |
+| Riesgo de errores | Bajo — el flujo es determinístico | Mayor — Claude puede tomar caminos inesperados |
+
+**Regla práctica:**
+
+- Si podés escribir el flujo en un diagrama antes de codificarlo → usá un **workflow**.
+- Si no podés anticipar qué tarea exacta recibirá Claude → usá un **agente**.
+
+---
+
+#### 56.3 Ejemplo de flujo de trabajo: Imagen a CAD
+
+![alt text](imagenes/image-117.png)
+
+Este ejemplo ilustra cuándo un workflow es la elección correcta. El usuario sube la foto de una pieza metálica y la aplicación devuelve un archivo STEP (modelo 3D industrial).
+
+**Pasos del flujo definidos de antemano:**
+
+```text
+1. Usuario sube imagen de la pieza
+        ↓
+2. Claude describe el objeto (forma, dimensiones estimadas, geometría)
+        ↓
+3. Claude genera código CadQuery para modelar el objeto en 3D
+        ↓
+4. Se renderiza el modelo y se genera una imagen del resultado
+        ↓
+5. Claude compara el renderizado con la imagen original
+        ↓
+   ¿Son equivalentes?
+   → Sí → Se exporta el archivo STEP al usuario
+   → No → Claude corrige el código CadQuery y vuelve al paso 4
+```
+
+Este caso es un **workflow** porque:
+
+- El desarrollador sabe exactamente qué hacer con cada imagen.
+- La UX limita al usuario a una sola tarea: subir una imagen de pieza metálica.
+- Los pasos son predefinidos y predecibles.
+
+---
+
+#### 56.4 El patrón Evaluador-Optimizador
+
+El flujo de imagen a CAD implementa un patrón clásico de workflows llamado **Evaluador-Optimizador**. Es una de las recetas más reutilizables en el diseño de sistemas con LLMs.
+
+![alt text](imagenes/image-118.png)
+
+**Componentes del patrón:**
+
+| Rol | Qué hace | En el ejemplo |
+| --- | --- | --- |
+| **Productor** | Recibe el input y genera un resultado | Claude genera código CadQuery a partir de la descripción |
+| **Evaluador** | Juzga si el resultado cumple los criterios | Claude compara el renderizado con la imagen original |
+| **Bucle de retroalimentación** | Si falla, le envía feedback al productor | Claude recibe la comparación y corrige el código |
+| **Condición de salida** | El ciclo termina cuando el evaluador aprueba | El renderizado es suficientemente fiel a la imagen |
+
+**Implementación esquemática en Python:**
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+def producir(imagen_base64: str, feedback: str = "") -> str:
+    """Genera código CadQuery a partir de la imagen (o lo corrige con feedback)."""
+    prompt = f"""
+    Analizá esta imagen de una pieza metálica y generá código Python con CadQuery
+    para modelarla en 3D.
+    {"Feedback del evaluador: " + feedback if feedback else ""}
+    Devolvé solo el código Python, sin explicaciones.
+    """
+    response = client.messages.create(
+        model="claude-opus-4-7",
+        max_tokens=2048,
+        messages=[{
+            "role": "user",
+            "content": [
+                {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": imagen_base64}},
+                {"type": "text", "text": prompt}
+            ]
+        }]
+    )
+    return response.content[0].text
+
+def evaluar(imagen_original_base64: str, renderizado_base64: str) -> tuple[bool, str]:
+    """Compara el renderizado con la imagen original. Devuelve (aprobado, feedback)."""
+    response = client.messages.create(
+        model="claude-opus-4-7",
+        max_tokens=512,
+        messages=[{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Imagen original:"},
+                {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": imagen_original_base64}},
+                {"type": "text", "text": "Renderizado del modelo 3D:"},
+                {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": renderizado_base64}},
+                {"type": "text", "text": "¿El renderizado representa fielmente la pieza? Respondé APROBADO o RECHAZADO y explicá las diferencias."}
+            ]
+        }]
+    )
+    texto = response.content[0].text
+    aprobado = "APROBADO" in texto.upper()
+    return aprobado, texto
+
+def workflow_imagen_a_cad(imagen_base64: str, max_iteraciones: int = 3) -> str:
+    """Orquesta el ciclo productor → evaluador hasta que el resultado sea aceptado."""
+    feedback = ""
+
+    for iteracion in range(1, max_iteraciones + 1):
+        print(f"Iteración {iteracion}: generando modelo...")
+        codigo_cad = producir(imagen_base64, feedback)
+
+        # Aquí iría la lógica de renderizado real con CadQuery
+        renderizado_base64 = renderizar_modelo(codigo_cad)  # función externa
+
+        aprobado, feedback = evaluar(imagen_base64, renderizado_base64)
+        if aprobado:
+            print(f"Modelo aprobado en la iteración {iteracion}.")
+            return exportar_step(codigo_cad)  # función externa
+
+    raise RuntimeError("No se logró un modelo aceptable en el límite de iteraciones.")
+```
+
+| Parámetro | Descripción |
+| --- | --- |
+| `max_iteraciones` | Límite de ciclos para evitar bucles infinitos |
+| `feedback` | Texto del evaluador que guía la corrección del productor |
+| `aprobado` | Booleano que controla si el ciclo continúa o termina |
+
+---
+
+#### 56.5 ¿Por qué aprender patrones de flujo de trabajo?
+
+Los patrones de workflow son **recetas reutilizables** — no hacen el trabajo por vos, pero dan una estructura probada sobre la cual construir. El patrón Evaluador-Optimizador es especialmente valioso porque:
+
+- Modela el proceso natural de revisión y corrección que haría un humano.
+- Permite que Claude mejore su propio output de forma iterativa.
+- Es agnóstico al dominio — funciona para código, texto, imágenes, diseño, etc.
+
+| Patrón | Cuándo usarlo |
+| --- | --- |
+| **Evaluador-Optimizador** | El output es verificable y mejora con feedback (código, diseño, texto estructurado) |
+| **Pipeline secuencial** | Cada paso transforma el resultado del anterior sin verificación intermedia |
+| **Fan-out / Fan-in** | Varias subtareas independientes que luego se combinan |
+| **Agente con herramientas** | El flujo no es predecible y Claude debe decidir qué hacer en cada paso |
+
+---
+
+### Módulo 57: Flujos de Trabajo de Paralelización
+
+#### 57.1 El problema del prompt único complejo
+
+Cuando Claude recibe una sola solicitud con múltiples criterios de evaluación simultáneos, enfrenta una carga cognitiva alta que degrada la calidad del resultado. Por ejemplo, pedir en un solo mensaje que evalúe una imagen para seis tipos de material distintos obliga al modelo a equilibrar criterios contrapuestos en paralelo internamente, lo que genera análisis superficiales y menor consistencia.
+
+El problema se agrava si se agregan criterios detallados al mismo prompt: más información no siempre produce mejores resultados — puede generar confusión entre los criterios y reducir la precisión de cada evaluación individual.
+
+---
+
+#### 57.2 La solución: paralelización
+
+El patrón de **paralelización** divide una tarea compleja en múltiples subtareas independientes que se envían a Claude simultáneamente. Cada subtarea se focaliza en un único aspecto del problema con criterios especializados. Los resultados individuales se agregan luego en un paso final de síntesis.
+
+![alt text](imagenes/image-119.png)
+
+**Estructura del patrón:**
+
+```text
+Input
+  ├─→ Solicitud especializada A (criterios para metal)     ┐
+  ├─→ Solicitud especializada B (criterios para polímero)  │→ Agregador → Decisión final
+  ├─→ Solicitud especializada C (criterios para cerámica)  │
+  └─→ Solicitud especializada D (criterios para madera)    ┘
+```
+
+Las subtareas paralelas **no tienen que ser idénticas**: cada una puede tener su propio prompt, herramientas o criterios de evaluación. Lo que las une es que se ejecutan de forma independiente y sus resultados se combinan al final.
+
+
+![alt text](imagenes/image-120.png)
+
+---
+
+#### 57.3 Implementación en Python con `asyncio`
+
+```python
+import asyncio
+import anthropic
+import base64
+
+client = anthropic.Anthropic()
+
+# Criterios especializados por tipo de material
+CRITERIOS_MATERIAL = {
+    "metal": "Evaluá si esta pieza es apta para fabricarse en metal. Considerá: resistencia mecánica, conductividad, soldabilidad, resistencia a la corrosión y capacidad de maquinado.",
+    "polímero": "Evaluá si esta pieza es apta para fabricarse en polímero. Considerá: flexibilidad requerida, resistencia química, temperatura de operación, costo y facilidad de moldeo.",
+    "cerámica": "Evaluá si esta pieza es apta para fabricarse en cerámica. Considerá: resistencia térmica, dureza, fragilidad, aislamiento eléctrico y precisión dimensional requerida.",
+    "compuesto": "Evaluá si esta pieza es apta para fabricarse en material compuesto. Considerá: relación resistencia/peso, anisotropía, costo de fabricación y geometría de la pieza.",
+    "elastómero": "Evaluá si esta pieza es apta para fabricarse en elastómero. Considerá: deformación reversible requerida, sellado, amortiguación y rango de temperatura.",
+    "madera": "Evaluá si esta pieza es apta para fabricarse en madera. Considerá: cargas estructurales, humedad del entorno, acabado superficial y carácter estético o funcional.",
+}
+
+def evaluar_material(imagen_base64: str, material: str, criterios: str) -> dict:
+    """Envía una solicitud especializada para un único tipo de material."""
+    response = client.messages.create(
+        model="claude-opus-4-7",
+        max_tokens=512,
+        messages=[{
+            "role": "user",
+            "content": [
+                {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": imagen_base64}},
+                {"type": "text", "text": f"{criterios}\nDa una puntuación del 1 al 10 y una justificación breve."}
+            ]
+        }]
+    )
+    return {"material": material, "analisis": response.content[0].text}
+
+async def evaluar_en_paralelo(imagen_base64: str) -> list[dict]:
+    """Ejecuta todas las evaluaciones de material simultáneamente."""
+    loop = asyncio.get_event_loop()
+    tareas = [
+        loop.run_in_executor(None, evaluar_material, imagen_base64, material, criterios)
+        for material, criterios in CRITERIOS_MATERIAL.items()
+    ]
+    return await asyncio.gather(*tareas)
+
+def agregar_resultados(imagen_base64: str, analisis: list[dict]) -> str:
+    """Paso final: Claude recibe todos los análisis y emite una recomendación."""
+    resumen = "\n\n".join(
+        f"**{r['material'].upper()}**:\n{r['analisis']}" for r in analisis
+    )
+    response = client.messages.create(
+        model="claude-opus-4-7",
+        max_tokens=1024,
+        messages=[{
+            "role": "user",
+            "content": [
+                {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": imagen_base64}},
+                {"type": "text", "text": f"Estos son los análisis individuales por material:\n\n{resumen}\n\nCompará los resultados y recomendá el material más adecuado para esta pieza, justificando tu elección."}
+            ]
+        }]
+    )
+    return response.content[0].text
+
+async def workflow_seleccion_material(ruta_imagen: str) -> str:
+    """Orquesta el workflow completo: paralelización + agregación."""
+    with open(ruta_imagen, "rb") as f:
+        imagen_base64 = base64.b64encode(f.read()).decode()
+
+    print("Evaluando materiales en paralelo...")
+    analisis = await evaluar_en_paralelo(imagen_base64)
+
+    print("Agregando resultados...")
+    recomendacion = agregar_resultados(imagen_base64, analisis)
+    return recomendacion
+
+# Uso
+resultado = asyncio.run(workflow_seleccion_material("pieza.png"))
+print(resultado)
+```
+
+| Función | Rol en el patrón | Nota |
+| --- | --- | --- |
+| `evaluar_material` | Subtarea paralela | Una llamada por material, con criterios especializados |
+| `evaluar_en_paralelo` | Fan-out | `asyncio.gather` ejecuta todas las solicitudes simultáneamente |
+| `agregar_resultados` | Fan-in / Agregador | Recibe todos los análisis y genera la decisión final |
+| `workflow_seleccion_material` | Orquestador | Coordina el flujo completo de principio a fin |
+
+- Divide una sola tarea en múltiples subtareas : desglosa la decisión compleja en evaluaciones especializadas y enfocadas.
+- Ejecutar las subtareas en paralelo : ejecutar todas las evaluaciones simultáneamente para un procesamiento más rápido.
+- Agrupar los resultados : combinar los análisis especializados en una decisión final.
+- Las subtareas paralelas no tienen por qué ser idénticas ; cada una puede tener una indicación especializada, un conjunto de herramientas o criterios de evaluación.
+
+
+---
+
+
+#### 57.4 Beneficios del patrón de paralelización
+
+| Beneficio | Por qué ocurre |
+| --- | --- |
+| **Atención focalizada** | Cada llamada evalúa un único aspecto; Claude no equilibra criterios contrapuestos en simultáneo |
+| **Optimización independiente** | Podés ajustar el prompt de metales sin tocar el de polímeros |
+| **Escalabilidad** | Agregar un nuevo material = agregar una entrada al diccionario de criterios |
+| **Mayor fiabilidad** | Subtareas más pequeñas → menor complejidad por llamada → resultados más consistentes |
+| **Velocidad** | Las solicitudes corren en paralelo, no en secuencia; el tiempo total ≈ el de la solicitud más lenta |
+
+---
+
+#### 57.5 Cuándo usar paralelización
+
+Este patrón es adecuado cuando la tarea cumple estas condiciones:
+
+- La decisión puede descomponerse en **evaluaciones independientes entre sí**.
+- Cada subtarea tiene **criterios o perspectivas propias** que no dependen del resultado de las otras.
+- El costo de múltiples llamadas se justifica por la ganancia en precisión o mantenibilidad.
+- La tarea crece agregando nuevas categorías (materiales, idiomas, categorías de riesgo, etc.).
+
+> No usar si las subtareas dependen unas de otras — en ese caso, un pipeline secuencial es más apropiado.
+
+---
+
+### Módulo 58: Encadenamiento de Flujos de Trabajo
+
+#### 58.1 ¿Qué es el encadenamiento de workflows?
+
+El **encadenamiento** (chaining) divide una tarea grande y compleja en subtareas **secuenciales** — donde cada paso puede usar el output del anterior como input. A diferencia de la paralelización (donde las subtareas son independientes), en el encadenamiento el orden importa: el paso 2 no puede empezar hasta que el paso 1 termine.
+
+La diferencia clave respecto a un prompt único es que cada llamada a Claude recibe una sola responsabilidad bien delimitada, lo que reduce la carga cognitiva del modelo y mejora la consistencia del resultado.
+
+---
+
+#### 58.2 Cuándo encadenar en lugar de un prompt único
+
+| Situación | Por qué el encadenamiento ayuda |
+| --- | --- |
+| Tarea con muchas restricciones simultáneas | Claude puede ignorar algunas restricciones cuando hay demasiadas en un solo prompt |
+| Pasos que dependen del resultado anterior | El output de cada paso es el input del siguiente |
+| Procesamiento no-LLM entre pasos | Podés insertar código, APIs, validaciones o transformaciones entre llamadas |
+| Dificultad para depurar el resultado final | El encadenamiento permite inspeccionar y corregir cada paso por separado |
+| Tarea demasiado larga para un solo contexto | Dividir reduce el riesgo de que Claude pierda el hilo en prompts muy extensos |
+
+---
+
+#### 58.3 Ejemplo 1: Herramienta de marketing en redes sociales
+
+Este caso combina llamadas a Claude con pasos de código y APIs externas — el flujo completo no podría estar en un solo prompt.
+
+```text
+1. [API Twitter]  → Obtener temas en tendencia relacionados al nicho
+        ↓
+2. [Claude]       → Seleccionar el tema más interesante y relevante
+        ↓
+3. [Claude]       → Investigar el tema y resumir los puntos clave
+        ↓
+4. [Claude]       → Escribir el guion para un video de formato corto
+        ↓
+5. [API externa]  → Generar el video con avatar IA + text-to-speech
+        ↓
+6. [API redes]    → Publicar el video en las plataformas
+```
+
+Los pasos 2, 3 y 4 son llamadas a Claude. Los pasos 1, 5 y 6 son código o APIs externas. El encadenamiento permite mezclar ambos sin restricciones.
+
+![alt text](imagenes/image-121.png)
+---
+
+#### 58.4 Ejemplo 2: Corrección de restricciones en artículos técnicos
+
+Este es el caso más frecuente del patrón: Claude produce un primer borrador aceptable, pero viola algunas restricciones. En lugar de complicar el prompt original, se agrega un segundo paso de revisión enfocado.
+
+**Paso 1 — Generación:**
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+def generar_articulo(tema: str) -> str:
+    """Paso 1: genera un borrador sin preocuparse aún por todas las restricciones."""
+    response = client.messages.create(
+        model="claude-opus-4-7",
+        max_tokens=2048,
+        messages=[{
+            "role": "user",
+            "content": f"Escribí un artículo técnico de 500 palabras sobre: {tema}"
+        }]
+    )
+    return response.content[0].text
+```
+
+**Paso 2 — Revisión con restricciones:**
+
+```python
+def revisar_articulo(articulo: str) -> str:
+    """Paso 2: Claude revisa el borrador con foco exclusivo en el cumplimiento de reglas."""
+    prompt_revision = f"""
+    Revisá el artículo que se provee a continuación. Seguí estos pasos para reescribirlo:
+
+    1. Identificá cualquier parte donde el texto se identifique como escrito por IA y eliminala.
+    2. Encontrá y eliminá todos los emojis.
+    3. Localizá cualquier lenguaje informal o cliché y reemplazalo por texto de tono profesional y técnico.
+
+    Artículo a revisar:
+    {articulo}
+
+    Devolvé únicamente el artículo revisado, sin comentarios adicionales.
+    """
+    response = client.messages.create(
+        model="claude-opus-4-7",
+        max_tokens=2048,
+        messages=[{
+            "role": "user",
+            "content": prompt_revision
+        }]
+    )
+    return response.content[0].text
+
+def workflow_articulo_tecnico(tema: str) -> str:
+    """Orquesta los dos pasos del workflow encadenado."""
+    print("Paso 1: generando borrador...")
+    borrador = generar_articulo(tema)
+
+    print("Paso 2: revisando restricciones...")
+    articulo_final = revisar_articulo(borrador)
+
+    return articulo_final
+
+# Uso
+resultado = workflow_articulo_tecnico("arquitecturas de microservicios con Kubernetes")
+print(resultado)
+```
+
+| Función | Paso | Responsabilidad única |
+| --- | --- | --- |
+| `generar_articulo` | 1 | Producir contenido de calidad sobre el tema |
+| `revisar_articulo` | 2 | Detectar y corregir violaciones a las restricciones |
+| `workflow_articulo_tecnico` | Orquestador | Pasar el output del paso 1 como input del paso 2 |
+
+---
+
+#### 58.5 Extensión: encadenamiento con validación intermedia
+
+En algunas variantes del patrón, se agrega un paso de validación entre la generación y la revisión para decidir si la revisión es necesaria o no, ahorrando llamadas innecesarias.
+
+```python
+def validar_restricciones(articulo: str) -> tuple[bool, list[str]]:
+    """Verifica qué restricciones se incumplieron antes de revisar."""
+    response = client.messages.create(
+        model="claude-haiku-4-5-20251001",  # Haiku es suficiente para una tarea de clasificación
+        max_tokens=256,
+        messages=[{
+            "role": "user",
+            "content": f"""
+            Revisá si el siguiente artículo incumple alguna de estas reglas:
+            1. Menciona que fue escrito por IA
+            2. Contiene emojis
+            3. Usa lenguaje informal o cliché
+
+            Respondé con una lista de las reglas violadas (o "NINGUNA" si no hay problemas).
+
+            Artículo:
+            {articulo}
+            """
+        }]
+    )
+    texto = response.content[0].text
+    hay_problemas = "NINGUNA" not in texto.upper()
+    return hay_problemas, texto
+
+def workflow_con_validacion(tema: str) -> str:
+    """Workflow encadenado con paso de validación intermedio."""
+    borrador = generar_articulo(tema)
+
+    hay_problemas, problemas = validar_restricciones(borrador)
+    if not hay_problemas:
+        print("Borrador aprobado sin revisión.")
+        return borrador
+
+    print(f"Problemas detectados:\n{problemas}\nIniciando revisión...")
+    return revisar_articulo(borrador)
+```
+
+> Al usar Haiku para la validación y Opus para la generación/revisión, se optimiza el costo: la tarea de clasificación no necesita el modelo más potente.
+
+---
+
+#### 58.6 Paralelización vs Encadenamiento — Cuándo usar cada uno
+
+| Criterio | Paralelización | Encadenamiento |
+| --- | --- | --- |
+| Dependencia entre subtareas | No — cada subtarea es independiente | Sí — cada paso usa el output del anterior |
+| Velocidad | Más rápido (corren en paralelo) | Más lento (corren en secuencia) |
+| Caso de uso típico | Evaluar múltiples opciones al mismo tiempo | Refinar un resultado en múltiples pasadas |
+| Inserción de código entre pasos | Posible en el agregador | Posible entre cualquier par de pasos |
+| Ejemplo | Evaluar 6 materiales simultáneamente | Generar artículo → validar → revisar |
+
+---
+
+### Módulo 59: Flujos de Trabajo de Enrutamiento
+
+#### 59.1 El problema de los prompts genéricos
+
+Muchas aplicaciones reciben solicitudes de naturaleza muy diferente. Un prompt único que intenta cubrir todos los casos produce resultados mediocres porque no puede optimizarse para ninguno en particular.
+
+**Ejemplo:** Una herramienta de guiones de video recibe el tema "programación" y el tema "surf". Ambos ameritan estilos completamente distintos:
+
+| Tema | Estilo óptimo | Falla del prompt genérico |
+| --- | --- | --- |
+| Programación | Educativo: explicaciones claras, ejemplos, definiciones | Tono demasiado informal o sin estructura didáctica |
+| Surf | Entretenimiento: emoción, visual, energía | Tono académico que no conecta con la audiencia |
+
+La solución es un **workflow de enrutamiento**: antes de generar el contenido, Claude clasifica la solicitud y la dirige al pipeline especializado correspondiente.
+
+---
+
+#### 59.2 Arquitectura del patrón de enrutamiento
+
+```text
+Input del usuario
+        ↓
+   [Enrutador]  ← Claude clasifica la solicitud en una categoría
+        ↓
+   ¿Categoría?
+   ├─ Educativo    → Pipeline educativo    → Output especializado
+   ├─ Entretenimiento → Pipeline entret.  → Output especializado
+   ├─ Comedia      → Pipeline comedia     → Output especializado
+   ├─ Vlog         → Pipeline vlog        → Output especializado
+   ├─ Reseña       → Pipeline reseña      → Output especializado
+   └─ Narrativa    → Pipeline narrativa   → Output especializado
+```
+
+La solicitud del usuario pasa **únicamente por un canal**, no por todos. Eso permite optimizar cada pipeline de forma independiente.
+
+El proceso de enrutamiento se realiza en dos pasos:
+
+- Categorización : Envía el tema del usuario a Claude con una solicitud para que lo clasifique en uno de tus géneros predefinidos.
+- Procesamiento especializado : utilice el resultado de la categoría para seleccionar la plantilla de solicitud adecuada y generar contenido.
+
+
+---
+
+#### 59.3 Definición de categorías y prompts especializados
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+# Cada categoría tiene su propio prompt especializado
+PROMPTS_CATEGORIA = {
+    "educativo": (
+        "Desarrollá un guion claro y atractivo que transforme información compleja "
+        "en ideas comprensibles usando ejemplos cercanos y preguntas que inviten a la reflexión. "
+        "Priorizá la precisión conceptual y la progresión lógica."
+    ),
+    "entretenimiento": (
+        "Creá un guion dinámico y culturalmente relevante con lenguaje moderno. "
+        "Enfatizá el atractivo visual, la energía y el ritmo. "
+        "El espectador debe sentir emoción desde el primer segundo."
+    ),
+    "comedia": (
+        "Escribí un guion ingenioso con observaciones inesperadas y un ritmo excelente. "
+        "Usá humor situacional, subversión de expectativas y timing preciso."
+    ),
+    "vlog": (
+        "Escribí un guion auténtico e íntimo con narración conversacional. "
+        "El tono debe sentirse como una charla con un amigo, no como una presentación."
+    ),
+    "reseña": (
+        "Escribí un guion decisivo basado en experiencia real. "
+        "Destacá fortalezas y debilidades con criterio claro. El espectador debe poder tomar una decisión al terminar."
+    ),
+    "narrativa": (
+        "Creá un guion inmersivo que use detalles vívidos y conexión emocional. "
+        "Construí tensión, personajes y una resolución satisfactoria."
+    ),
+}
+
+CATEGORIAS_VALIDAS = list(PROMPTS_CATEGORIA.keys())
+```
+
+| Categoría | Foco del prompt |
+| --- | --- |
+| `educativo` | Precisión, progresión lógica, ejemplos comprensibles |
+| `entretenimiento` | Energía, atractivo visual, ritmo acelerado |
+| `comedia` | Ingenio, subversión de expectativas, timing |
+| `vlog` | Autenticidad, tono conversacional, cercanía |
+| `reseña` | Criterio claro, fortalezas/debilidades, utilidad práctica |
+| `narrativa` | Detalles vívidos, arco emocional, inmersión |
+
+![alt text](imagenes/image-122.png)
+
+---
+
+#### 59.4 Implementación completa del enrutador
+
+```python
+def enrutar(tema: str) -> str:
+    """Paso 1: Claude clasifica el tema en una de las categorías predefinidas."""
+    categorias_str = "\n".join(f"- {c}" for c in CATEGORIAS_VALIDAS)
+    response = client.messages.create(
+        model="claude-haiku-4-5-20251001",  # Haiku es suficiente para clasificación
+        max_tokens=64,
+        messages=[{
+            "role": "user",
+            "content": f"""Categorizá el siguiente tema de video en una de las categorías listadas.
+Respondé únicamente con el nombre de la categoría, en minúsculas, sin explicaciones.
+
+<topic>{tema}</topic>
+
+<categories>
+{categorias_str}
+</categories>"""
+        }]
+    )
+    categoria = response.content[0].text.strip().lower()
+
+    # Validar que la categoría devuelta es una de las esperadas
+    if categoria not in CATEGORIAS_VALIDAS:
+        categoria = "educativo"  # fallback por defecto
+    return categoria
+
+def generar_guion(tema: str, categoria: str) -> str:
+    """Paso 2: genera el guion usando el prompt especializado de la categoría."""
+    prompt_especializado = PROMPTS_CATEGORIA[categoria]
+    response = client.messages.create(
+        model="claude-opus-4-7",
+        max_tokens=1024,
+        messages=[{
+            "role": "user",
+            "content": f"{prompt_especializado}\n\nTema del video: {tema}"
+        }]
+    )
+    return response.content[0].text
+
+def workflow_enrutamiento(tema: str) -> dict:
+    """Orquesta el workflow completo: enrutamiento → generación especializada."""
+    print(f"Enrutando tema: '{tema}'...")
+    categoria = enrutar(tema)
+    print(f"Categoría asignada: {categoria}")
+
+    print("Generando guion especializado...")
+    guion = generar_guion(tema, categoria)
+
+    return {"tema": tema, "categoria": categoria, "guion": guion}
+
+# Uso
+resultado = workflow_enrutamiento("Funciones de Python")
+print(f"Categoría: {resultado['categoria']}")
+print(resultado['guion'])
+```
+
+| Función | Modelo usado | Por qué ese modelo |
+| --- | --- | --- |
+| `enrutar` | Haiku | Clasificar en categorías predefinidas es una tarea simple y repetitiva |
+| `generar_guion` | Opus | La generación de contenido de calidad requiere el modelo más capaz |
+| `workflow_enrutamiento` | — | Orquestador sin lógica de LLM propia |
+
+> Separar el enrutador del generador también permite cambiar uno sin tocar el otro. Si los criterios de categorización cambian, solo se modifica `enrutar`; si se mejoran los prompts de contenido, solo se modifica `PROMPTS_CATEGORIA`.
+
+---
+
+#### 59.5 Variante: enrutamiento con confianza
+
+En aplicaciones de producción es útil saber qué tan seguro está Claude de su categorización. Si la confianza es baja, se puede pedir confirmación al usuario o usar un canal genérico como fallback.
+
+```python
+def enrutar_con_confianza(tema: str) -> tuple[str, str]:
+    """Clasifica el tema y devuelve también una justificación breve."""
+    categorias_str = "\n".join(f"- {c}" for c in CATEGORIAS_VALIDAS)
+    response = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=128,
+        messages=[{
+            "role": "user",
+            "content": f"""Categorizá el siguiente tema en una de las categorías.
+Respondé en formato: CATEGORIA | motivo en una línea
+
+<topic>{tema}</topic>
+<categories>
+{categorias_str}
+</categories>"""
+        }]
+    )
+    partes = response.content[0].text.strip().split("|", 1)
+    categoria = partes[0].strip().lower()
+    motivo = partes[1].strip() if len(partes) > 1 else ""
+    if categoria not in CATEGORIAS_VALIDAS:
+        categoria = "educativo"
+    return categoria, motivo
+```
+
+Flujo de trabajo del enrutamiento:
+- La entrada del usuario se envía primero a un componente del enrutador.
+- El enrutador clasifica la solicitud mediante una llamada Claude inicial.
+- Según la categoría, la entrada se envía a una canalización de procesamiento específica.
+- Cada canalización puede tener su propio flujo de trabajo, indicaciones o herramientas optimizadas para esa categoría.
+
+La clave reside en que la información del usuario se procesa únicamente a través de un único canal especializado, no a través de todos. Esto permite optimizar cada canal para su caso de uso específico.
+
+![alt text](imagenes/image-123.png)
+
+
+
+---
+
+#### 59.6 Cuándo usar enrutamiento
+
+| Condición | ¿Usar enrutamiento? |
+| --- | --- |
+| Las solicitudes tienen tipos claramente distintos | Sí |
+| Las categorías se pueden definir con antelación | Sí |
+| Un prompt genérico produce resultados inconsistentes | Sí |
+| Todas las solicitudes son del mismo tipo | No — el enrutamiento agrega latencia innecesaria |
+| Las categorías se superponen demasiado | No — el clasificador producirá errores frecuentes |
+
+**Casos de uso típicos:** bots de atención al cliente (técnico / facturación / reclamos), herramientas de contenido (formal / informal / creativo), sistemas de moderación (spam / contenido sensible / legítimo).
+
+---
+
+### Módulo 60: Agentes y Herramientas
+
+#### 60.1 La diferencia fundamental: agentes vs workflows
+
+Los módulos anteriores cubrieron workflows — flujos donde el desarrollador define la secuencia exacta de pasos. Los agentes invierten esa responsabilidad: el desarrollador provee un objetivo y un conjunto de herramientas, y **Claude decide cómo combinarlas** para alcanzar el objetivo.
+
+| Dimensión | Workflow | Agente |
+| --- | --- | --- |
+| Control del flujo | El desarrollador | Claude |
+| Secuencia de pasos | Predefinida en código | Decidida en tiempo de ejecución |
+| Flexibilidad ante lo inesperado | Baja — solo maneja los casos previstos | Alta — puede adaptarse a solicitudes nuevas |
+| Fiabilidad | Alta — el comportamiento es predecible | Menor — Claude puede tomar caminos inesperados |
+| Costo por tarea | Controlable | Variable — más pasos de razonamiento |
+| Cuándo usarlo | Se conocen los pasos exactos | No se puede anticipar qué pasos serán necesarios |
+
+> La flexibilidad de los agentes tiene un costo: mayor variabilidad en el comportamiento y en el gasto de tokens. No son superiores a los workflows — son la herramienta correcta para el problema correcto.
+
+![alt text](imagenes/image-124.png)
+---
+
+#### 60.2 Cómo las herramientas le dan poder al agente
+
+El valor de un agente no está en las herramientas individuales sino en su **capacidad de combinarlas**. Con un conjunto pequeño de herramientas de fecha y hora, Claude puede resolver solicitudes de complejidad muy distinta:
+
+| Solicitud del usuario | Herramientas que Claude encadena |
+| --- | --- |
+| "¿Qué hora es?" | `get_current_datetime` |
+| "¿Qué día es dentro de 11 días?" | `get_current_datetime` → `add_duration_to_datetime` |
+| "Recordatorio para el gimnasio el próximo miércoles" | `get_current_datetime` → `add_duration_to_datetime` → `set_reminder` |
+| "¿Cuándo vence mi garantía de 90 días?" | Pide más info al usuario → `get_current_datetime` → `add_duration_to_datetime` |
+
+![alt text](imagenes/image-125.png)
+
+Claude también reconoce cuándo **le falta información** para completar una tarea y la solicita antes de llamar herramientas — comportamiento emergente que no fue programado explícitamente.
+
+![alt text](imagenes/image-126.png)
+---
+
+#### 60.3 Implementación básica de un agente con herramientas
+
+```python
+import anthropic
+from datetime import datetime, timedelta
+
+client = anthropic.Anthropic()
+
+# Definición de las herramientas (schemas que Claude puede invocar)
+HERRAMIENTAS = [
+    {
+        "name": "get_current_datetime",
+        "description": "Obtiene la fecha y hora actuales del sistema.",
+        "input_schema": {"type": "object", "properties": {}, "required": []}
+    },
+    {
+        "name": "add_duration_to_datetime",
+        "description": "Suma una cantidad de días a una fecha dada y devuelve la nueva fecha.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "fecha_iso": {"type": "string", "description": "Fecha base en formato ISO 8601 (YYYY-MM-DDTHH:MM:SS)"},
+                "dias": {"type": "integer", "description": "Número de días a agregar (puede ser negativo)"}
+            },
+            "required": ["fecha_iso", "dias"]
+        }
+    },
+    {
+        "name": "set_reminder",
+        "description": "Crea un recordatorio para una fecha y hora específicas.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "mensaje": {"type": "string", "description": "Texto del recordatorio"},
+                "fecha_iso": {"type": "string", "description": "Fecha y hora del recordatorio en formato ISO 8601"}
+            },
+            "required": ["mensaje", "fecha_iso"]
+        }
+    }
+]
+
+def ejecutar_herramienta(nombre: str, params: dict) -> str:
+    """Despacha la llamada a la función real según el nombre de la herramienta."""
+    if nombre == "get_current_datetime":
+        return datetime.now().isoformat()
+
+    if nombre == "add_duration_to_datetime":
+        base = datetime.fromisoformat(params["fecha_iso"])
+        resultado = base + timedelta(days=params["dias"])
+        return resultado.isoformat()
+
+    if nombre == "set_reminder":
+        # En producción esto llamaría a una API real de recordatorios
+        return f"Recordatorio creado: '{params['mensaje']}' para {params['fecha_iso']}"
+
+    return f"Herramienta desconocida: {nombre}"
+
+def ejecutar_agente(solicitud_usuario: str) -> str:
+    """
+    Bucle agente: Claude razona, llama herramientas, observa resultados,
+    y continúa hasta producir una respuesta final.
+    """
+    mensajes = [{"role": "user", "content": solicitud_usuario}]
+
+    while True:
+        response = client.messages.create(
+            model="claude-opus-4-7",
+            max_tokens=1024,
+            tools=HERRAMIENTAS,
+            messages=mensajes
+        )
+
+        # Si Claude terminó de razonar, devolver la respuesta final
+        if response.stop_reason == "end_turn":
+            return response.content[0].text
+
+        # Si Claude quiere usar herramientas, ejecutarlas y continuar el bucle
+        if response.stop_reason == "tool_use":
+            # Agregar la respuesta de Claude (con sus tool_use blocks) al historial
+            mensajes.append({"role": "assistant", "content": response.content})
+
+            # Ejecutar todas las herramientas solicitadas
+            resultados_herramientas = []
+            for bloque in response.content:
+                if bloque.type == "tool_use":
+                    resultado = ejecutar_herramienta(bloque.name, bloque.input)
+                    resultados_herramientas.append({
+                        "type": "tool_result",
+                        "tool_use_id": bloque.id,
+                        "content": resultado
+                    })
+
+            # Devolver los resultados al agente para que continúe
+            mensajes.append({"role": "user", "content": resultados_herramientas})
+
+# Uso
+print(ejecutar_agente("¿Qué día de la semana es dentro de 11 días?"))
+print(ejecutar_agente("Poné un recordatorio para el gimnasio el próximo miércoles"))
+```
+
+| Componente | Descripción |
+| --- | --- |
+| `HERRAMIENTAS` | Schemas que describen a Claude qué puede invocar y con qué parámetros |
+| `ejecutar_herramienta` | Despacha la herramienta real; Claude solo ve el nombre y el resultado |
+| `ejecutar_agente` | Bucle `while True` que alterna entre razonamiento de Claude y ejecución de herramientas |
+| `stop_reason == "end_turn"` | Señal de que Claude terminó y su respuesta final está lista |
+| `stop_reason == "tool_use"` | Señal de que Claude quiere invocar una o más herramientas antes de continuar |
+
+---
+
+#### 60.4 Principio de diseño: herramientas abstractas, no hiperespecializadas
+
+La clave para crear agentes robustos es proveer herramientas **genéricas y componibles**, no funciones para cada caso de uso posible.
+
+![alt text](imagenes/image-127.png)
+
+**Contraejemplo — herramientas demasiado específicas:**
+
+```text
+refactorizar_codigo()
+instalar_dependencias()
+crear_pull_request()
+```
+
+Cada función cubre un caso exacto. Si surge un caso no previsto, el agente no tiene con qué trabajar.
+
+**Ejemplo correcto — herramientas abstractas (como Claude Code):**
+
+```text
+bash()     → ejecuta cualquier comando de terminal
+read()     → lee cualquier archivo
+write()    → crea cualquier archivo
+edit()     → modifica archivos
+glob()     → busca archivos por patrón
+grep()     → busca contenido dentro de archivos
+```
+
+Con estas seis herramientas, Claude puede refactorizar código, instalar dependencias, crear pull requests, depurar errores y mucho más — sin que ninguno de esos casos haya sido programado explícitamente.
+
+| Criterio | Herramientas abstractas | Herramientas hiperespecializadas |
+| --- | --- | --- |
+| Cobertura de casos | Amplia — Claude improvisa combinaciones | Estrecha — solo los casos previstos |
+| Mantenimiento | Bajo — pocas herramientas estables | Alto — hay que agregar una por cada caso nuevo |
+| Comportamiento emergente | Posible — Claude descubre usos nuevos | Imposible — solo hace lo que fue programado |
+| Riesgo de mal uso | Mayor — más superficie de acción | Menor — las acciones están acotadas |
+
+---
+
+#### 60.5 Ejemplo: agente de video para redes sociales
+
+Un conjunto de herramientas abstractas permite al agente adaptarse dinámicamente según las preferencias del usuario durante la sesión.
+
+```python
+HERRAMIENTAS_VIDEO = [
+    {
+        "name": "bash",
+        "description": "Ejecuta un comando de terminal. Permite usar ffmpeg para procesamiento de video.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"comando": {"type": "string"}},
+            "required": ["comando"]
+        }
+    },
+    {
+        "name": "generate_image",
+        "description": "Genera una imagen a partir de una descripción textual.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"descripcion": {"type": "string"}},
+            "required": ["descripcion"]
+        }
+    },
+    {
+        "name": "text_to_speech",
+        "description": "Convierte texto a un archivo de audio.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "texto": {"type": "string"},
+                "voz": {"type": "string", "description": "Estilo de voz (neutral, energético, suave)"}
+            },
+            "required": ["texto"]
+        }
+    },
+    {
+        "name": "post_media",
+        "description": "Sube contenido multimedia a una plataforma de redes sociales.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "archivo": {"type": "string"},
+                "plataforma": {"type": "string"},
+                "descripcion": {"type": "string"}
+            },
+            "required": ["archivo", "plataforma"]
+        }
+    }
+]
+```
+
+Con este conjunto, Claude puede manejar flujos simples ("creá y publicá el video") o flujos interactivos ("generá primero una imagen de muestra para que el usuario la apruebe antes de crear el video completo") — sin que el desarrollador haya programado explícitamente cada variante.
+
+---
+
+#### 60.6 Cuándo usar agentes y cuándo no
+
+| Usar agente | Usar workflow |
+| --- | --- |
+| Las solicitudes varían mucho y no son predecibles | Los pasos son siempre los mismos |
+| Se quiere flexibilidad a costa de algo de variabilidad | Se necesita comportamiento determinístico |
+| El conjunto de herramientas es abstracto y combinable | Los pasos son demasiado específicos para generalizarse |
+| Se acepta el costo variable de múltiples llamadas | El costo por solicitud debe ser controlado |
+
+---
+
+### Módulo 61: Inspección Ambiental
+
+#### 61.1 El problema: Claude opera a ciegas por defecto
+
+Cuando un agente ejecuta una acción — escribir en un archivo, llamar una API, ejecutar un comando — no sabe automáticamente si funcionó ni cómo quedó el entorno después. Sin mecanismos de observación, Claude actúa como un ejecutor ciego de órdenes: invoca herramientas pero no puede verificar sus efectos.
+
+La **inspección ambiental** es el principio que resuelve esto: darle a Claude la capacidad de **observar el estado del entorno antes y después de cada acción**, para que pueda razonar sobre lo que ocurrió y adaptar su siguiente paso.
+
+> Claude Code ilustra este principio: después de cada acción (click, escritura, etc.) recibe automáticamente una captura de pantalla. Sin esa captura, no podría saber si navegó a una página nueva, si se abrió un menú o si la acción falló silenciosamente.
+
+---
+
+#### 61.2 El patrón: observar → actuar → observar
+
+La inspección ambiental convierte el bucle agente básico (razonar → actuar) en un bucle de tres fases:
+
+```text
+[Observar estado inicial]
+        ↓
+[Razonar sobre qué hacer]
+        ↓
+[Actuar con una herramienta]
+        ↓
+[Observar resultado de la acción]
+        ↓
+   ¿El resultado es el esperado?
+   → Sí → continuar con el siguiente paso
+   → No → corregir y reintentar
+```
+
+| Fase | Qué hace Claude | Por qué es necesaria |
+| --- | --- | --- |
+| Observar antes | Lee el archivo, hace una captura, consulta la API | Entender el estado actual antes de actuar sobre él |
+| Actuar | Modifica, crea, envía, ejecuta | Avanzar hacia el objetivo |
+| Observar después | Vuelve a leer, extrae frames, compara outputs | Verificar que la acción tuvo el efecto esperado |
+
+---
+
+#### 61.3 Ejemplo concreto: leer antes de escribir
+
+El patrón más común es **leer el contenido actual antes de modificarlo**. Si Claude escribe en un archivo sin leerlo primero, puede sobreescribir código existente o introducir conflictos.
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+HERRAMIENTAS = [
+    {
+        "name": "read_file",
+        "description": "Lee y devuelve el contenido completo de un archivo.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"ruta": {"type": "string", "description": "Ruta al archivo"}},
+            "required": ["ruta"]
+        }
+    },
+    {
+        "name": "write_file",
+        "description": "Escribe contenido en un archivo, sobreescribiendo su contenido actual.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "ruta": {"type": "string"},
+                "contenido": {"type": "string"}
+            },
+            "required": ["ruta", "contenido"]
+        }
+    },
+    {
+        "name": "bash",
+        "description": "Ejecuta un comando de terminal y devuelve stdout y stderr.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"comando": {"type": "string"}},
+            "required": ["comando"]
+        }
+    }
+]
+
+SYSTEM_PROMPT = """Sos un agente de desarrollo de software.
+
+Antes de modificar cualquier archivo, siempre seguí estos pasos:
+1. Usá read_file para leer el contenido actual del archivo.
+2. Analizá la estructura existente antes de hacer cambios.
+3. Después de escribir el archivo, usá bash para ejecutar los tests o importar el módulo
+   y verificar que no se rompió nada.
+
+Nunca modifiques un archivo sin leerlo primero."""
+
+def ejecutar_herramienta(nombre: str, params: dict) -> str:
+    if nombre == "read_file":
+        try:
+            with open(params["ruta"], "r", encoding="utf-8") as f:
+                return f.read()
+        except FileNotFoundError:
+            return f"ERROR: archivo '{params['ruta']}' no encontrado"
+
+    if nombre == "write_file":
+        with open(params["ruta"], "w", encoding="utf-8") as f:
+            f.write(params["contenido"])
+        return f"Archivo '{params['ruta']}' escrito correctamente."
+
+    if nombre == "bash":
+        import subprocess
+        result = subprocess.run(params["comando"], shell=True, capture_output=True, text=True)
+        return result.stdout + result.stderr
+
+    return f"Herramienta desconocida: {nombre}"
+
+def ejecutar_agente(solicitud: str) -> str:
+    mensajes = [{"role": "user", "content": solicitud}]
+
+    while True:
+        response = client.messages.create(
+            model="claude-opus-4-7",
+            max_tokens=2048,
+            system=SYSTEM_PROMPT,   # instruye a Claude a inspeccionar antes y después
+            tools=HERRAMIENTAS,
+            messages=mensajes
+        )
+
+        if response.stop_reason == "end_turn":
+            return next(b.text for b in response.content if hasattr(b, "text"))
+
+        if response.stop_reason == "tool_use":
+            mensajes.append({"role": "assistant", "content": response.content})
+            resultados = []
+            for bloque in response.content:
+                if bloque.type == "tool_use":
+                    resultado = ejecutar_herramienta(bloque.name, bloque.input)
+                    resultados.append({
+                        "type": "tool_result",
+                        "tool_use_id": bloque.id,
+                        "content": resultado
+                    })
+            mensajes.append({"role": "user", "content": resultados})
+
+# Uso: el agente leerá el archivo antes de modificarlo
+ejecutar_agente("Agregá una ruta /health al archivo routes.py que devuelva {'status': 'ok'}")
+```
+
+| Instrucción en el system prompt | Efecto en el comportamiento del agente |
+| --- | --- |
+| "Antes de modificar cualquier archivo, siempre usá `read_file`" | Claude no escribe sin leer primero |
+| "Después de escribir, usá bash para ejecutar los tests" | Claude verifica que el cambio no rompió nada |
+| "Nunca modifiques un archivo sin leerlo primero" | Refuerzo explícito de la regla como restricción dura |
+
+---
+
+#### 61.4 Inspección ambiental para generación de video
+
+En tareas más complejas como la generación de video, la inspección requiere herramientas especializadas para observar el estado del artefacto producido.
+
+```python
+SYSTEM_PROMPT_VIDEO = """Sos un agente de producción de video.
+
+Después de generar o modificar un video, siempre inspeccioná el resultado:
+
+1. Ejecutá whisper.cpp con bash para generar subtítulos con timestamps y verificar
+   que el diálogo de audio está correctamente ubicado en el tiempo.
+
+2. Usá ffmpeg para extraer capturas de pantalla a intervalos regulares:
+   bash("ffmpeg -i output.mp4 -vf fps=1 frames/frame_%04d.png")
+   Luego inspeccioná visualmente los frames clave con read_file o revisalos.
+
+3. Compará el contenido generado con los requisitos originales antes de considerar
+   la tarea completa.
+
+Si detectás discrepancias, corregí el video antes de responder al usuario."""
+```
+
+| Verificación | Herramienta | Qué detecta |
+| --- | --- | --- |
+| Timing del diálogo | `whisper.cpp` vía `bash` | Subtítulos desincronizados o silencios inesperados |
+| Contenido visual | `ffmpeg` frame extraction | Elementos faltantes, glitches, transiciones incorrectas |
+| Completitud | Comparación con requisitos | Partes del guion no incluidas o mal ordenadas |
+
+---
+
+#### 61.5 Beneficios de la inspección ambiental
+
+| Beneficio | Mecanismo |
+| --- | --- |
+| **Seguimiento de progreso** | Claude puede calcular qué tan cerca está del objetivo observando el estado actual |
+| **Detección de errores** | Los resultados inesperados se identifican antes de continuar |
+| **Control de calidad** | La tarea no se considera completa hasta que la observación lo confirma |
+| **Comportamiento adaptativo** | Claude ajusta su plan en función de lo que observa, no de lo que supone |
+
+---
+
+#### 61.6 Checklist de diseño: ¿puede Claude observar sus acciones?
+
+Al diseñar un agente, para cada acción posible preguntarse:
+
+- **Archivos:** ¿hay una herramienta `read_file` para leer antes y verificar después?
+- **APIs:** ¿la herramienta devuelve la respuesta completa de la API, incluyendo errores?
+- **UIs:** ¿hay una herramienta de captura de pantalla o de scraping de estado?
+- **Código generado:** ¿hay una herramienta `bash` para ejecutar y observar el output?
+- **Artefactos (video, imagen, audio):** ¿hay herramientas para extraer muestras verificables?
+
+Si alguna acción no tiene mecanismo de observación, Claude operará a ciegas en esa parte del flujo.
+
+---
+
+### Módulo 62: Flujos de Trabajo vs Agentes — Decisión Arquitectónica
+
+#### 62.1 Resumen comparativo
+
+Este módulo cierra la unidad sintetizando los dos grandes enfoques arquitectónicos y ofreciendo criterios claros para elegir entre ellos.
+
+| Dimensión | Workflow | Agente |
+| --- | --- | --- |
+| **Definición** | Serie predefinida de llamadas a Claude para resolver problemas conocidos | Claude recibe herramientas y elabora su propio plan para completar la tarea |
+| **Control del flujo** | El desarrollador codifica la secuencia | Claude decide los pasos en tiempo de ejecución |
+| **Precisión** | Alta — cada paso está enfocado en una subtarea específica | Menor — Claude puede tomar caminos subóptimos |
+| **Tasa de éxito** | Alta — comportamiento predecible y testeable | Menor — el plan emergente puede fallar de formas no anticipadas |
+| **Flexibilidad** | Baja — resuelve los tipos de tarea para los que fue diseñado | Alta — puede manejar solicitudes novedosas |
+| **Testing y evaluación** | Fácil — se conoce cada paso exacto | Difícil — la secuencia de pasos es desconocida de antemano |
+| **Planificación previa** | Alta — requiere diseñar el flujo completo | Baja — alcanza con definir herramientas y objetivo |
+| **Costo por tarea** | Controlable — llamadas fijas y predecibles | Variable — más pasos de razonamiento implican más tokens |
+
+![alt text](imagenes/image-128.png)
+---
+
+#### 62.2 Ventajas y desventajas detalladas
+
+**Ventajas de los workflows:**
+
+- Claude trabaja una subtarea a la vez → mayor precisión por paso
+- Cada paso es inspectable y testeable de forma independiente
+- El comportamiento es reproducible: misma entrada, misma secuencia
+- Ideal para aplicaciones de producción donde la fiabilidad es crítica
+
+**Desventajas de los workflows:**
+
+- Solo resuelven los tipos de tarea para los que fueron diseñados
+- La UX está limitada a las entradas que el flujo puede procesar
+- Requieren más trabajo de diseño previo: hay que mapear el flujo completo antes de codificar
+
+**Ventajas de los agentes:**
+
+- La UX es más flexible: el usuario puede pedir cosas no anticipadas
+- Claude combina herramientas de formas creativas para resolver problemas nuevos
+- Puede pedir información adicional al usuario cuando la necesita
+- Un solo agente puede reemplazar múltiples workflows especializados
+
+**Desventajas de los agentes:**
+
+- Menor tasa de finalización exitosa comparado con workflows equivalentes
+- El camino que toma Claude es difícil de predecir, instrumentar y depurar
+- El comportamiento puede variar entre ejecuciones con la misma entrada
+- El costo en tokens es más alto y menos predecible
+
+---
+
+#### 62.3 Marco de decisión
+
+```text
+¿Puedo describir los pasos exactos que Claude debería seguir?
+        │
+       Sí → ¿Los pasos son siempre los mismos para este tipo de tarea?
+              │
+             Sí → WORKFLOW
+              │
+             No → ¿Hay categorías bien definidas de tareas?
+                    │
+                   Sí → WORKFLOW con ENRUTAMIENTO (módulo 59)
+                    │
+                   No → AGENTE
+        │
+       No → ¿Las subtareas son independientes entre sí?
+              │
+             Sí → WORKFLOW con PARALELIZACIÓN (módulo 57)
+              │
+             No → AGENTE con herramientas abstractas (módulo 60)
+```
+
+| Señal en el proyecto | Arquitectura recomendada |
+| --- | --- |
+| Proceso de negocio con pasos fijos | Workflow encadenado |
+| Múltiples tipos de solicitud bien diferenciados | Workflow con enrutamiento |
+| Evaluaciones independientes sobre el mismo input | Workflow con paralelización |
+| Output que mejora iterativamente con feedback | Workflow evaluador-optimizador |
+| Solicitudes variadas e impredecibles | Agente con herramientas abstractas |
+| Mezcla de tareas predecibles e impredecibles | Workflow como camino principal + agente como fallback |
+
+---
+
+#### 62.4 La recomendación del curso: priorizar workflows
+
+> "Los usuarios probablemente no les importe que hayas creado un agente sofisticado; lo que quieren es un producto que funcione de forma consistente."
+
+La guía práctica del curso es:
+
+1. **Intentar implementar un workflow primero.** Si podés mapear los pasos, usá un workflow.
+2. **Recurrir a agentes solo cuando sea estrictamente necesario:** cuando los requisitos son tan variados que no se pueden anticipar los pasos.
+3. **Combinar ambos:** un workflow como camino feliz y un agente como mecanismo de fallback para solicitudes fuera del flujo normal.
+
+Esta recomendación no es dogmática — es una heurística de ingeniería. La complejidad de un agente se justifica cuando la flexibilidad que aporta supera el costo en fiabilidad y capacidad de depuración.
+
+---
+
+#### 62.5 Cuándo cada enfoque es correcto
+
+| Usar **workflow** cuando... | Usar **agente** cuando... |
+| --- | --- |
+| El proceso de negocio está bien definido | Las solicitudes del usuario son impredecibles |
+| La fiabilidad y la reproducibilidad son críticas | La flexibilidad es más valiosa que la consistencia |
+| El equipo necesita poder testear y auditar cada paso | No se puede anticipar la secuencia de herramientas necesaria |
+| El costo por solicitud debe ser predecible | Se acepta variabilidad en el costo y el comportamiento |
+| Los usuarios siempre proveen los mismos tipos de input | Los usuarios pueden pedir cualquier cosa dentro de un dominio |
+
+---
+
+### Resumen de la Unidad 10: Agentes y Flujos de Trabajo
+
+| Módulo | Tema | Concepto clave |
+| --- | --- | --- |
+| **56** | Agentes y Flujos de Trabajo | Workflows = pasos predefinidos por el desarrollador; Agentes = Claude decide el flujo; elegir según qué tan bien se comprende la tarea de antemano |
+| **57** | Flujos de Trabajo de Paralelización | Dividir una tarea compleja en subtareas independientes (fan-out); ejecutar en paralelo; agregar resultados (fan-in); mejor foco y escalabilidad que un prompt único |
+| **58** | Encadenamiento de Flujos de Trabajo | Dividir una tarea en pasos secuenciales donde cada output alimenta el siguiente input; ideal cuando Claude ignora restricciones en prompts largos o cuando hay procesamiento no-LLM entre pasos |
+| **59** | Flujos de Trabajo de Enrutamiento | Clasificar la solicitud entrante con un enrutador (Claude/Haiku) y dirigirla al pipeline especializado correspondiente; evita prompts genéricos que producen resultados mediocres |
+| **60** | Agentes y Herramientas | Agente = objetivo + herramientas abstractas; Claude decide cómo combinarlas; las herramientas deben ser genéricas y componibles para maximizar el comportamiento emergente; el bucle agente alterna razonamiento y ejecución de herramientas |
+| **61** | Inspección Ambiental | Claude opera a ciegas sin mecanismos de observación; el patrón observar→actuar→observar convierte acciones ciegas en acciones verificables; el system prompt debe instruir explícitamente cuándo y cómo inspeccionar |
+| **62** | Flujos de Trabajo vs Agentes | Priorizar workflows por su fiabilidad y capacidad de testing; recurrir a agentes solo cuando la variabilidad de las solicitudes lo exige; combinar ambos como camino feliz + fallback |
+
+**Conclusión de la unidad:** La elección entre workflow y agente no es técnica sino de ingeniería de producto. Los workflows dan previsibilidad; los agentes dan flexibilidad. El objetivo final es siempre la fiabilidad del producto para el usuario — la arquitectura es el medio, no el fin. Dominar los patrones de esta unidad (paralelización, encadenamiento, enrutamiento, evaluador-optimizador, inspección ambiental) permite construir tanto workflows robustos como agentes efectivos, y combinarlos según lo que cada parte del sistema requiera.
+
+---
+
+## Resumen General del Curso
+
+El curso cubre el ciclo completo de construir aplicaciones con Claude, desde la primera llamada a la API hasta sistemas agénticos complejos. Hay una progresión clara: cada unidad se apoya en la anterior.
+
+---
+
+### Mapa de unidades y relaciones
+
+```text
+[U1: Fundamentos] → [U2: API] → [U3: Evaluación] → [U4: Prompting]
+                                                              ↓
+                        [U7: Features avanzadas]  ←  [U5: Herramientas]
+                                 ↓                          ↓
+                        [U8: MCP]                   [U6: RAG]
+                                 ↓
+                        [U9: Claude Code]
+                                 ↓
+                        [U10: Agentes y Workflows]
+```
+
+---
+
+### Unidad 1 — Fundamentos (Módulos 1–2)
+
+**¿Qué es Claude y cómo funciona una solicitud?**
+
+Establece el vocabulario base. Los tres modelos (Opus / Sonnet / Haiku) y su tradeoff inteligencia-costo-velocidad son la primera decisión de diseño que aparece en casi todas las unidades siguientes. El ciclo de vida de 5 pasos (cliente → backend → API → modelo → respuesta) es la anatomía de toda llamada a la API.
+
+**Relación con el resto:** La elección de modelo (U1) resuena en U5 (herramientas complejas → Opus), U6 (RAG → Haiku para embeddings), U8 (MCP), y U10 (enrutamiento usa Haiku para clasificar, Opus para generar).
+
+---
+
+### Unidad 2 — Acceso a la API (Módulos 3–8)
+
+**Los bloques básicos de construcción.**
+
+Cubre las primitivas fundamentales que aparecen en todas las unidades posteriores:
+
+| Concepto | Por qué importa después |
+| --- | --- |
+| Llamada básica a la API (M3) | Base de todo lo demás |
+| Conversaciones multi-turno (M4) | Prerequisito directo para Tools (U5) y Agentes (U10) |
+| System prompt (M5) | Reaparece en U10 como instrumento de inspección ambiental |
+| Temperatura (M6) | Afecta la creatividad en generación (U5) y la consistencia en agentes (U10) |
+| Streaming (M7) | Técnica de UX para respuestas largas; relevante en agentes de larga duración |
+| Datos estructurados (M8) | Prerequisito para los schemas de herramientas en U5 y U8 |
+
+**Relación clave:** Los datos estructurados (M8) y las conversaciones multi-turno (M4) son los dos cimientos sobre los que se construye todo el sistema de herramientas en U5.
+
+---
+
+### Unidad 3 — Evaluación (Módulo 9)
+
+**¿Cómo saber si Claude hace lo correcto?**
+
+Introduce el concepto de evaluar respuestas antes de ir a producción. Es la unidad más metodológica — no agrega features sino criterio de ingeniería. La idea central: nunca desplegar un sistema que no se puede medir.
+
+**Relación con el resto:** El patrón Evaluador-Optimizador de U10 (M56) es la automatización programática de este mismo principio: un evaluador juzga el output y un productor lo mejora en bucle.
+
+---
+
+### Unidad 4 — Ingeniería de Prompts (Módulos 10–14)
+
+**Cómo hablarle bien a Claude.**
+
+Cuatro técnicas concretas que mejoran la calidad de cualquier llamada:
+
+- **Proceso iterativo (M10):** nunca el primer prompt es el mejor; probar y medir.
+- **Claridad y especificidad (M11–12):** Claude es literal — la ambigüedad produce resultados ambiguos.
+- **XML tags (M13):** estructura el input para que Claude no mezcle instrucciones con datos.
+- **Few-shot (M14):** mostrar ejemplos es más efectivo que describir el formato esperado.
+
+**Relación clave:** Las XML tags de M13 son exactamente la estructura que se usa en los system prompts de agentes en U10. El few-shot de M14 reaparece en los prompts especializados del enrutamiento (M59). La iteración de M10 es la filosofía subyacente al evaluador-optimizador de M56.
+
+---
+
+### Unidad 5 — Herramientas (Módulos 15–26)
+
+**Darle capacidades de acción a Claude.**
+
+La unidad más larga y técnica. Construye el sistema de herramientas desde cero:
+
+```text
+Concepto de tool (M15)
+    → Schema JSON (M18)
+    → Manejo de bloques tool_use/tool_result (M19–20)
+    → Multi-turno con tools (M21–22)
+    → Múltiples herramientas en paralelo (M23)
+    → Control fino (M24)
+    → Tools built-in: text_editor (M25) y web_search (M26)
+```
+
+**Relación clave:** Todo U10 se construye sobre este sistema. El bucle agente de M60 es exactamente el bucle multi-turno de M21–22 pero con Claude tomando la iniciativa en lugar del desarrollador. Los schemas JSON de M18 son los mismos que se definen en U8 (MCP) y U10.
+
+---
+
+### Unidad 6 — RAG (Módulos 27–33)
+
+**Darle memoria de largo plazo a Claude.**
+
+Claude solo conoce lo que está en su contexto. RAG resuelve eso: recuperar información relevante de una base de conocimiento externa antes de generar la respuesta.
+
+```text
+Problema (M27) → Chunking (M28) → Embeddings (M29)
+    → Flujo RAG completo (M30) → Implementación (M31)
+    → BM25 léxico (M32) → Índice múltiple (M33)
+```
+
+**Relación clave:** RAG es un workflow de encadenamiento (U10/M58) aplicado a recuperación de información: buscar → recuperar → generar. La búsqueda BM25 (M32) + embeddings (M29) combinados en M33 es exactamente el patrón de paralelización (M57) aplicado a búsqueda. MCP (U8) puede exponer un índice RAG como recurso o herramienta, conectando U6 con U8.
+
+---
+
+### Unidad 7 — Características Avanzadas de Claude (Módulos 34–41)
+
+**Las capacidades nativas que amplifican todo lo anterior.**
+
+| Feature | Cuándo usarla | Relación |
+| --- | --- | --- |
+| Extended thinking (M34) | Razonamiento complejo, matemáticas, código difícil | Hace al agente (U10) más capaz en tareas de varios pasos |
+| Imágenes (M35) | Input visual | Prerequisito del ejemplo imagen-a-CAD de M56 |
+| PDF (M36) | Documentos | Input para pipelines RAG (U6) |
+| Citas (M37) | Respuestas con fuente verificable | Complementa RAG (U6) |
+| Prompt caching (M38–40) | Reducir costo en system prompts largos y repetidos | Crítico en agentes (U10) donde el system prompt se repite en cada turno |
+| Files API / Code execution (M41) | Análisis de datos, generación de artefactos | Herramienta abstracta ideal para agentes (M60) |
+
+**Relación clave:** El prompt caching (M38–40) es especialmente relevante en U10: en el bucle agente, el system prompt se envía en cada iteración del loop. Sin caching, el costo escala linealmente con los turnos.
+
+---
+
+### Unidad 8 — MCP (Módulos 42–51)
+
+**El estándar abierto para conectar Claude con cualquier sistema externo.**
+
+MCP generaliza el sistema de herramientas de U5: en lugar de definir funciones en código, se define un servidor MCP que expone herramientas, recursos y prompts. Cualquier cliente compatible (Claude Code, tu app) puede consumirlos.
+
+```text
+Concepto MCP (M42) → Clientes (M43) → Configuración (M44)
+    → Herramientas MCP (M45–46) → Cliente MCP (M47)
+    → Recursos MCP (M48–49) → Prompts MCP (M50–51)
+```
+
+**Relación clave:** MCP es la versión estandarizada y distribuible de las herramientas de U5. Donde U5 define tools en Python, U8 las expone como servidor reutilizable. Claude Code (U9) usa MCP para extenderse con servidores externos. Los agentes de U10 pueden consumir servidores MCP como fuente de herramientas abstractas.
+
+---
+
+### Unidad 9 — Claude Code y Computer Use (Módulos 52–55)
+
+**Un agente real como caso de estudio.**
+
+Claude Code es la demostración práctica de todo el curso: un agente (U10) que usa herramientas abstractas (U5/M60), con inspección ambiental (M61), extensible via MCP (U8), capaz de procesar archivos (U7), con conversaciones multi-turno (U2) y system prompt estructurado (U4).
+
+**Relación clave:** Claude Code es el caso de estudio que integra U2 + U4 + U5 + U7 + U8 + U10 en un solo sistema. Estudiarlo es ver cómo interactúan todos los conceptos del curso.
+
+---
+
+### Unidad 10 — Agentes y Workflows (Módulos 56–62)
+
+**Cómo orquestar todo lo anterior en sistemas complejos.**
+
+La unidad final sintetiza el curso con cinco patrones arquitectónicos:
+
+| Patrón | Módulo | Relación con otras unidades |
+| --- | --- | --- |
+| Evaluador-Optimizador | M56 | Automatiza la evaluación de U3 en un bucle programático |
+| Paralelización | M57 | Usa asyncio + múltiples llamadas API (U2) con herramientas (U5) |
+| Encadenamiento | M58 | Multi-turno (U2/M4) + procesamiento intermedio de código |
+| Enrutamiento | M59 | Clasificación primero (Haiku/U1) + prompts especializados (U4) |
+| Agentes + tools | M60 | Bucle multi-turno (U2) + herramientas abstractas (U5) + system prompt (U4) |
+| Inspección ambiental | M61 | System prompt (U2/M5) que instruye cuándo observar + tools de lectura (U5) |
+| Decisión final | M62 | Criterios de ingeniería: priorizar workflows, agentes como último recurso |
+
+---
+
+### El hilo conductor del curso
+
+```text
+Llamada básica (U2)
+    + Prompts bien escritos (U4)
+    + Herramientas (U5)
+    + Memoria externa (U6)
+    + Features nativas (U7)
+    + Estándar de integración (U8)
+    = Agente robusto y medible (U10)
+```
+
+La progresión es acumulativa: cada unidad agrega una capa. No se puede hacer agentes sin herramientas; no se pueden usar herramientas sin entender los schemas; los schemas requieren datos estructurados; los datos estructurados son U2. El curso no tiene desvíos — cada módulo construye sobre el anterior.
