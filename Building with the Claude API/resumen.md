@@ -148,6 +148,19 @@ Comprender este flujo permite:
 
 ---
 
+### Resumen de la Unidad 1: Introducción
+
+Esta unidad establece el vocabulario y la arquitectura conceptual del curso.
+
+| Módulo | Tema | Concepto clave |
+| --- | --- | --- |
+| **1** | Modelos de Claude | Tres modelos con tradeoffs distintos: Opus (máxima inteligencia, mayor costo), Sonnet (balance calidad/velocidad), Haiku (mínimo costo, máxima velocidad); elegir según complejidad y volumen de la tarea |
+| **2** | Ciclo de vida de una solicitud | Flujo de 5 pasos: cliente → backend → API de Anthropic → modelo → respuesta; la clave API nunca se expone al frontend; cada etapa tiene su propio punto de fallo |
+
+**Patrón transversal de la unidad:** la elección del modelo no es cosmética — afecta el costo, la latencia y la calidad de cada respuesta. Dominar cuándo usar Haiku vs Sonnet vs Opus es una decisión de ingeniería que reaparece en todas las unidades siguientes.
+
+---
+
 ## Unidad 2: Acceso a Claude mediante API
 
 ### Módulo 3: Hacer una solicitud (primera llamada a la API)
@@ -621,6 +634,23 @@ La clave es identificar el patrón de apertura que Claude usaría y usarlo como 
 
 ---
 
+### Resumen de la Unidad 2: Acceso a Claude mediante API
+
+Esta unidad construyó las primitivas fundamentales sobre las que se apoya todo el curso.
+
+| Módulo | Tema | Concepto clave |
+| --- | --- | --- |
+| **3** | Primera llamada a la API | `client.messages.create(model, max_tokens, messages)` — estructura mínima obligatoria; la respuesta incluye `content[0].text` y `stop_reason` |
+| **4** | Conversaciones multi-turno | Array `messages` con roles alternados `user`/`assistant`; el historial completo se reenvía en cada solicitud — Claude no tiene memoria propia |
+| **5** | System prompts | Parámetro `system` separado del array `messages`; define rol, restricciones y contexto persistente sin ocupar un turno de conversación |
+| **6** | Temperatura | Rango 0–1: 0 = determinístico y reproducible, 1 = máxima creatividad; controla la distribución de probabilidad sobre tokens |
+| **7** | Streaming | `stream=True` + iteración sobre eventos `message_delta`; permite mostrar tokens en tiempo real sin esperar la respuesta completa |
+| **8** | Datos estructurados | Prefill de la respuesta de Claude + stop sequences para extraer solo el dato útil (JSON, CSV, código) sin texto adicional |
+
+**Patrón transversal de la unidad:** todas las primitivas de esta unidad son parámetros de `client.messages.create()`. Dominar ese único punto de entrada — sus parámetros, sus tipos de respuesta y sus modos de operación — es la base técnica de todo lo que sigue en el curso.
+
+---
+
 ## Unidad 3: Evaluación inmediata
 
 ### Módulo 9: Evaluación de indicaciones
@@ -1063,6 +1093,18 @@ El peso de cada criterio se puede ajustar según el caso de uso. Por ejemplo, si
 
 ---
 
+### Resumen de la Unidad 3: Evaluación inmediata
+
+Esta unidad introduce el criterio metodológico más importante del curso: medir antes de desplegar.
+
+| Módulo | Tema | Concepto clave |
+| --- | --- | --- |
+| **9** | Evaluación de prompts | Tres estrategias complementarias: evaluador por código (criterios objetivos y reproducibles), LLM-as-judge (calidad semántica flexible) e híbrido (promedio ponderado de ambos); la puntuación base sirve de referencia para medir mejoras |
+
+**Patrón transversal de la unidad:** un sistema que no se puede medir no se puede mejorar. La evaluación no es un paso final — es un proceso continuo que convierte la ingeniería de prompts en una disciplina empírica en lugar de una práctica de ensayo y error.
+
+---
+
 ## Unidad 4: Ingeniería de indicaciones
 
 ### Módulo 10: Ingeniería rápida — proceso iterativo
@@ -1442,6 +1484,22 @@ Al correr evaluaciones, buscar los resultados con el puntaje más alto (idealmen
 - Usar ejemplos relevantes y específicos para la tarea
 
 > Los ejemplos muestran en lugar de describir. Esto hace los prompts mucho más fiables y ayuda a Claude a entender requisitos sutiles que serían difíciles de expresar solo con instrucciones.
+
+---
+
+### Resumen de la Unidad 4: Ingeniería de indicaciones
+
+Esta unidad desarrolla las cuatro técnicas concretas para comunicarse con Claude de forma efectiva y predecible.
+
+| Módulo | Tema | Concepto clave |
+| --- | --- | --- |
+| **10** | Proceso iterativo | Ningún prompt es óptimo en la primera versión; el ciclo escribir → evaluar → refinar es la práctica central de la ingeniería de prompts |
+| **11** | Claridad y dirección | Claude es literal: instrucciones ambiguas producen resultados ambiguos; usar verbos de acción concretos y evitar el lenguaje indirecto |
+| **12** | Especificidad | Definir explícitamente formato, longitud, tono y audiencia esperada; las restricciones reducen la varianza del output |
+| **13** | Etiquetas XML | `<etiqueta>contenido</etiqueta>` para separar instrucciones de datos de usuario; evita que Claude mezcle contextos distintos en el mismo prompt |
+| **14** | Few-shot prompting | Proveer pares de ejemplo entrada-salida dentro del prompt; más efectivo que describir el formato en prosa, especialmente para formatos no estándar |
+
+**Patrón transversal de la unidad:** la calidad del output de Claude está directamente correlacionada con la precisión del input. Claridad, especificidad, estructura XML y ejemplos son herramientas complementarias — cada una reduce un tipo distinto de ambigüedad que Claude de otro modo resolvería por cuenta propia con resultados impredecibles.
 
 ---
 
@@ -2790,6 +2848,29 @@ Casos donde la herramienta aporta más valor:
 
 ---
 
+### Resumen de la Unidad 5: Tools
+
+Esta unidad es la más larga y técnica del curso — construye desde cero el sistema completo de herramientas que habilita a Claude para actuar sobre el mundo real.
+
+| Módulo | Tema | Concepto clave |
+| --- | --- | --- |
+| **15** | Introducción a herramientas | Claude propone la llamada, la app la ejecuta; ciclo: solicitud → `tool_use` block → ejecución → `tool_result` → respuesta final |
+| **16** | Proyecto práctico | Sistema de recordatorios end-to-end: integración de definición, ejecución y respuesta en una aplicación real |
+| **17** | Funciones de herramienta | Las funciones Python son independientes del schema; el schema describe la interfaz, la función implementa la lógica |
+| **18** | Esquemas de herramientas | Objeto JSON con `name`, `description` e `input_schema` (JSON Schema); la `description` es crítica — Claude la usa para decidir cuándo invocar la tool |
+| **19** | Manejo de bloques de mensajes | La respuesta puede contener múltiples bloques `content`: `text` y `tool_use` conviven en el mismo mensaje; iterar sobre `response.content` para manejar ambos |
+| **20** | Enviando resultados | Bloque `tool_result` con `tool_use_id` y `content`; se agrega como mensaje `user` de seguimiento para cerrar el ciclo |
+| **21** | Multi-turno con tools | El historial completo (incluyendo `tool_use` y `tool_result`) se acumula en el array `messages` entre turnos |
+| **22** | Múltiples giros | Bucle `while True` que alterna entre llamadas a Claude y ejecución de herramientas hasta que `stop_reason == "end_turn"` |
+| **23** | Múltiples herramientas | Pasar un array de schemas en `tools=[]`; Claude selecciona la herramienta adecuada según el contexto |
+| **24** | Control fino | `tool_choice` para forzar o prohibir herramientas; streaming con tools usa `InputJsonEvent` para recibir argumentos JSON parciales |
+| **25** | Text editor tool | Herramienta built-in de Anthropic para leer y editar archivos; reduce el boilerplate de implementar operaciones de archivo manualmente |
+| **26** | Web search tool | Herramienta built-in para búsqueda en tiempo real; Claude decide cuándo buscar según el contexto de la pregunta |
+
+**Patrón transversal de la unidad:** el protocolo de tools es siempre el mismo ciclo — definir el schema, detectar el bloque `tool_use` en la respuesta, ejecutar la función, devolver el `tool_result`. Todo lo demás (múltiples herramientas, multi-turno, streaming, tools built-in) son variaciones sobre ese mismo ciclo fundamental.
+
+---
+
 ## Unidad 6: RAG y búsqueda agencial
 
 | Módulo | Tema |
@@ -3601,6 +3682,24 @@ Módulo 33  →  Retriever híbrido con Reciprocal Rank Fusion
 
 Sistema final = Segmentación + Embeddings + VectorIndex + BM25Index + RRF
 ```
+
+---
+
+### Resumen de la Unidad 6: RAG y búsqueda agencial
+
+Esta unidad resuelve la limitación más fundamental de los LLMs: su conocimiento está congelado en la fecha de entrenamiento. RAG conecta a Claude con bases de conocimiento externas actualizables.
+
+| Módulo | Tema | Concepto clave |
+| --- | --- | --- |
+| **27** | Introducción a RAG | Recuperar fragmentos relevantes antes de generar; el contexto del prompt reemplaza la memoria del modelo |
+| **28** | Estrategias de chunking | Cuatro enfoques: tamaño fijo, por estructura, por oraciones, semántico; el tamaño del chunk afecta precisión y cobertura del retrieval |
+| **29** | Embeddings de texto | Vectores de alta dimensión que capturan significado semántico; similitud coseno mide relevancia; VoyageAI como proveedor recomendado |
+| **30** | Flujo RAG completo | Pipeline: query → embedding → similitud coseno → top-k chunks → prompt enriquecido → respuesta con contexto |
+| **31** | Implementación con VectorIndex | `VectorIndex` almacena embeddings; `query()` devuelve los chunks más similares; integración con `client.messages.create()` |
+| **32** | Búsqueda léxica BM25 | Complementa los embeddings con búsqueda por términos exactos; `BM25Index` para keywords, nombres propios y acrónimos que el embedding no captura bien |
+| **33** | Pipeline multi-índice con RRF | Reciprocal Rank Fusion combina los rankings de BM25 y embeddings; resultado más robusto que cualquier método solo |
+
+**Patrón transversal de la unidad:** RAG es un workflow de encadenamiento aplicado al retrieval — cada módulo agrega una capa al pipeline. El sistema final (chunking + embeddings + vector search + BM25 + RRF) no es complejo por capricho: cada capa resuelve un caso de fallo de la anterior.
 
 ---
 
