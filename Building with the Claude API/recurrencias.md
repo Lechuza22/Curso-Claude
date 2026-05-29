@@ -256,6 +256,94 @@ client = OpenAI(base_url="http://localhost:11434/v1", api_key="ollama")
 
 ---
 
+## 5. MCP: cliente, servidor y tu backend
+
+### ¿Qué diferencia hay entre "mi servidor", el MCP client y el MCP server?
+
+Son tres capas distintas que conviven en el ecosistema MCP:
+
+```text
+┌─────────────────────────────────────────────────────┐
+│              TU BACKEND (tu servidor)               │
+│                                                     │
+│  ┌────────────────────────────────────────────┐     │
+│  │            TU AGENTE                       │     │
+│  │  - Bucle while True                        │     │
+│  │  - Historial de mensajes                   │     │
+│  │  - Lógica de negocio                       │     │
+│  │                                            │     │
+│  │  ┌─────────────────┐                       │     │
+│  │  │   MCP CLIENT    │ ←— viene incluido en  │     │
+│  │  │  (SDK o Claude) │    el SDK/framework   │     │
+│  └──┴────────┬────────┴───────────────────────┘     │
+└──────────────│──────────────────────────────────────┘
+               │ protocolo MCP (JSON-RPC)
+    ┌──────────┼────────────────┐
+    ▼          ▼                ▼
+┌────────┐ ┌────────┐    ┌───────────┐
+│MCP     │ │MCP     │    │MCP        │
+│Server  │ │Server  │    │Server     │
+│Google  │ │Postgres│    │Firecrawl  │
+│Drive   │ │        │    │           │
+└────────┘ └────────┘    └───────────┘
+```
+
+| Capa | Qué es | ¿Quién lo hace? |
+| --- | --- | --- |
+| **Tu backend** | Tu aplicación completa: agente, lógica, API key | Vos lo programás |
+| **MCP Client** | Componente que habla el protocolo MCP hacia los servers | Viene incluido en Claude Code o el SDK — vos solo lo configurás |
+| **MCP Server** | Proceso externo que expone tools/resources vía MCP | Ya existe — lo instalás y usás (`firecrawl-mcp-server`, `mcp-postgres`...) |
+
+**La intuición correcta:** vos sos el *usuario* del MCP Server, y el MCP Client es la capa del medio que no tenés que construir desde cero.
+
+Lo que vos sí programás vs. lo que solo configurás o usás:
+
+```text
+VOS PROGRAMÁS          VOS CONFIGURÁS       VOS USÁS (ya existe)
+─────────────────      ────────────────     ──────────────────────
+Agente (bucle,    →    MCP Client      →    MCP Server
+ historial,            (qué servidores       (firecrawl, postgres,
+ lógica de negocio,     conectar)             google drive...)
+ tools custom Python)
+```
+
+**Analogía con la web:** tu backend es la computadora, el MCP Client es el navegador (sabe hablar el protocolo), y el MCP Server es el sitio web (expone recursos).
+
+---
+
+### ¿Mi servidor sería como un orquestador que tiene el MCP client y se comunica con el MCP server?
+
+Exacto — esa es la mejor forma de pensarlo. Tu backend es el orquestador que tiene dos tipos de "brazos":
+
+```text
+                TU BACKEND (orquestador)
+                ┌─────────────────────────────────┐
+                │                                 │
+                │  ┌──────────┐  ┌─────────────┐  │
+                │  │  AGENTE  │  │ MCP CLIENT  │  │
+                │  │  (bucle, │  │ (protocolo  │  │
+                │  │  lógica) │  │  de conexión│  │
+                │  └────┬─────┘  └──────┬──────┘  │
+                └───────│───────────────│─────────┘
+                        │               │
+                ┌───────▼───────┐  ┌────▼──────────────┐
+                │   ANTHROPIC   │  │   MCP SERVERS      │
+                │   (Claude)    │  │  - firecrawl       │
+                │               │  │  - postgres        │
+                └───────────────┘  │  - google drive    │
+                                   └───────────────────┘
+```
+
+El orquestador decide:
+
+- cuándo llamar a Claude (via API key)
+- cuándo llamar a un MCP server (via MCP client)
+- cómo combinar ambas respuestas para seguir el flujo
+
+Es exactamente el rol del orquestador que vio el curso en los patrones de flujo de trabajo — solo que ahora se ve de dónde salen las "piezas" que orquesta.
+
+---
+
 ## Mapa de relaciones entre preguntas
 
 ```text
@@ -274,4 +362,10 @@ client = OpenAI(base_url="http://localhost:11434/v1", api_key="ollama")
             │
             └── Files API (subir una vez, reusar siempre)
                     └── ¿Es como los Proyectos de Claude? (sí, misma idea)
+
+¿Dónde vive el agente? (en tu backend)
+    └── ¿Qué diferencia hay con el MCP client y el MCP server?
+            ├── MCP Server = ya existe, lo usás (firecrawl, postgres...)
+            ├── MCP Client = viene en el SDK, solo lo configurás
+            └── Tu agente = lo programás vos (bucle, lógica, tools custom)
 ```
